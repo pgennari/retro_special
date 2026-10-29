@@ -24,7 +24,8 @@ Não existe etapa de instalação: o projeto usa apenas módulos nativos do Node
 
 ### Identidade
 - Nome + foto (recortada e comprimida no navegador) ou avatar emoji.
-- Fica salvo no navegador e volta preenchido na próxima visita.
+- O perfil fica salvo no navegador e volta preenchido na próxima visita.
+- **Cada janela/aba é uma pessoa:** abrir outra janela (inclusive anônima) sugere o perfil salvo, mas não entra como a pessoa da primeira janela. A identidade ativa fica no `sessionStorage`; o perfil, no `localStorage`.
 - Cada pessoa recebe uma cor própria na sala.
 
 ### Sala
@@ -66,7 +67,18 @@ O modo demo é ótimo para experimentar, mas não persiste entre navegadores nem
 npm test
 ```
 
-Roda os 11 casos do motor (`shared/engine.js`) no Node. A mesma suíte também pode ser aberta em `tests/engine.test.html`.
+Roda os 11 casos do motor (`shared/engine.js`) e os 8 casos de identidade por janela no Node. A suíte do motor também pode ser aberta em `tests/engine.test.html`.
+
+## Publicação
+
+O app roda no **Firebase App Hosting** (Cloud Run) no projeto `retro-special-pgennari` e é publicado automaticamente a cada push na branch `main`.
+
+- Workflow: `.github/workflows/firebase-deploy.yml`
+- Configuração do backend: `apphosting.yaml` e `firebase.json`
+- Deploy manual: `firebase deploy --only apphosting --project retro-special-pgennari`
+- Autenticação do GitHub Actions: Workload Identity Federation com a service account `github-deployer@retro-special-pgennari.iam.gserviceaccount.com` (secrets `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_SERVICE_ACCOUNT`).
+
+O App Hosting exige o plano **Blaze**. Como as salas ficam em memória e o tempo real usa SSE, o backend é limitado a **uma instância** (`minInstances: 1`, `maxInstances: 1`); reinícios e novas versões limpam as salas em andamento.
 
 ## Estrutura
 
@@ -82,7 +94,10 @@ public/assets/js/
   home.js                 identificação, criar/entrar
   room.js                 sala, cards, dinâmica, arrastar e placar
   app.js                  rotas em hash e bootstrap
-tests/                    casos do motor (navegador e Node)
+tests/                    casos do motor e de identidade (navegador e Node)
+apphosting.yaml           configuração do Firebase App Hosting
+firebase.json             backend e deploy do App Hosting
+.github/workflows/        deploy automático no push para main
 ```
 
 ## Notas

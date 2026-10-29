@@ -109,6 +109,7 @@
                 <span id="continue-label">Continuar</span>
                 <span class="btn-arrow" aria-hidden="true">→</span>
               </button>
+              <p class="micro identity-window-note" id="identity-window-note" hidden>Esta é uma janela nova: cada janela entra como uma pessoa diferente. Confirme ou edite seu nome para continuar.</p>
               <p class="micro">Dica: escolha um avatar com a sua cara. Ele aparece nas dinâmicas.</p>
             </div>
 
@@ -116,7 +117,10 @@
             <div id="step-lobby" class="step" hidden>
               <div class="lobby-top">
                 <div class="who-chip" id="lobby-who"></div>
-                <button class="link-btn" id="change-identity" type="button">trocar</button>
+                <div class="lobby-who-actions">
+                  <button class="link-btn" id="change-identity" type="button" title="Editar nome e avatar">editar perfil</button>
+                  <button class="link-btn" id="new-person" type="button" title="Entrar como outra pessoa nesta janela">outra pessoa</button>
+                </div>
               </div>
 
               <div class="step-head compact">

@@ -45,7 +45,7 @@
     var code = parseRoute();
     if (code) {
       var current = identity.load();
-      if (!current.name) {
+      if (!current.name || !identity.isActive()) {
         setView('home');
         document.title = 'Retro Special — retrospectiva de sprint';
         Retro.home.render({ inviteCode: code });

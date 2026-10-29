@@ -794,6 +794,18 @@ img { max-width: 100%; }
 .who-chip b { color: var(--ink); font-weight: 600; }
 .who-chip span.person-name { max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+.lobby-who-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+.identity-window-note {
+  color: var(--lime);
+  text-align: left;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid rgba(182, 255, 92, 0.22);
+  border-radius: 8px;
+  background: rgba(182, 255, 92, 0.07);
+}
+
 .lobby-grid { display: grid; gap: 11px; margin-top: 18px; }
 
 .lobby-create {

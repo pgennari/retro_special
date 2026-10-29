@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/run-node.js"
+    "build": "node --check server.js && node --check shared/engine.js && node --check public/assets/js/app.js && node --check public/assets/js/api.js && node --check public/assets/js/home.js && node --check public/assets/js/identity.js && node --check public/assets/js/room.js && node --check public/assets/js/ui.js",
+    "test": "node tests/run-node.js && node tests/identity.test.js"
   },
   "engines": {
     "node": ">=18"

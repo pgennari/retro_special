@@ -1,0 +1,14 @@
+# Configuração do Firebase App Hosting (Cloud Run).
+#
+# As salas ficam em memória e o tempo real usa SSE, então a aplicação precisa
+# rodar em um único processo: mantenha maxInstances em 1.
+runConfig:
+  minInstances: 1
+  maxInstances: 1
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+scripts:
+  buildCommand: npm run build
+  runCommand: npm start

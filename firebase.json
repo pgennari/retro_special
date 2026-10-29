@@ -1,0 +1,7 @@
+{
+  "apphosting": {
+    "backendId": "retro-special",
+    "rootDir": "/",
+    "alwaysDeployFromSource": true
+  }
+}

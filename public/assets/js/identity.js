@@ -4,7 +4,12 @@
 
   window.Retro = window.Retro || {};
 
-  var KEY = 'retro-special:identity:v1';
+  // Perfil salvo no navegador (preenche a próxima visita) e identidade ativa
+  // da janela atual. A identidade ativa fica no sessionStorage: cada aba/janela
+  // é uma pessoa diferente, mesmo em janelas anônimas que compartilham o
+  // localStorage.
+  var PROFILE_KEY = 'retro-special:identity:v1';
+  var SESSION_KEY = 'retro-special:session:v1';
   var PHOTO_RE = /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
   var ID_RE = /^[A-Za-z0-9_-]{6,80}$/;
 
@@ -22,14 +27,45 @@
   ];
 
   var cached = null;
+  var cachedActive = false;
 
-  function storage() {
+  function safeStorage(kind) {
     try {
-      var demo = Retro.env && Retro.env.demo;
-      return demo ? window.sessionStorage : window.localStorage;
+      var store = kind === 'session' ? window.sessionStorage : window.localStorage;
+      if (!store) return null;
+      var probe = '__retro_special_probe__';
+      store.setItem(probe, '1');
+      store.removeItem(probe);
+      return store;
     } catch (error) {
       return null;
     }
+  }
+
+  function readStored(store, key) {
+    if (!store) return null;
+    try {
+      var raw = store.getItem(key);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeStored(store, key, value) {
+    if (!store) return;
+    try { store.setItem(key, JSON.stringify(value)); } catch (error) { /* quota / modo privado */ }
+  }
+
+  function normalizeIdentity(parsed, fallbackId) {
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      id: typeof parsed.id === 'string' && ID_RE.test(parsed.id) ? parsed.id : fallbackId,
+      name: cleanName(parsed.name),
+      avatar: sanitizeAvatar(parsed.avatar) || defaultAvatar()
+    };
   }
 
   function generateId() {
@@ -79,39 +115,46 @@
 
   function save(identity) {
     cached = identity;
-    var store = storage();
-    if (store) {
-      try { store.setItem(KEY, JSON.stringify(identity)); } catch (error) { /* quota / modo privado */ }
-    }
+    cachedActive = true;
+    var sessionStore = safeStorage('session');
+    var localStore = safeStorage('local');
+    writeStored(sessionStore, SESSION_KEY, identity);
+    // o perfil guarda apenas nome/avatar/id para preencher a próxima visita
+    writeStored(localStore, PROFILE_KEY, identity);
     return identity;
   }
 
   function load() {
     if (cached) return cached;
-    var store = storage();
-    var raw = null;
-    if (store) {
-      try { raw = store.getItem(KEY); } catch (error) { raw = null; }
+
+    var sessionStore = safeStorage('session');
+    var active = readStored(sessionStore, SESSION_KEY);
+    if (active) {
+      cached = normalizeIdentity(active, generateId());
+      cachedActive = true;
+      return cached;
     }
-    var identity = null;
-    if (raw) {
-      try {
-        var parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          identity = {
-            id: typeof parsed.id === 'string' && ID_RE.test(parsed.id) ? parsed.id : generateId(),
-            name: cleanName(parsed.name),
-            avatar: sanitizeAvatar(parsed.avatar) || defaultAvatar()
-          };
-        }
-      } catch (error) { identity = null; }
+
+    var localStore = safeStorage('local');
+    var profile = readStored(localStore, PROFILE_KEY);
+
+    // sem sessionStorage (navegador antigo/bloqueado): mantém o comportamento
+    // antigo para o app continuar funcionando.
+    if (!sessionStore && profile) {
+      cached = normalizeIdentity(profile, generateId());
+      cachedActive = true;
+      return cached;
     }
-    if (!identity) {
-      identity = { id: generateId(), name: '', avatar: defaultAvatar() };
-    }
-    cached = identity;
-    save(identity);
-    return identity;
+
+    // janela nova: começa um participante novo, mas sugere o nome/avatar do
+    // perfil salvo. Só entra de fato quando a pessoa confirma.
+    cached = {
+      id: generateId(),
+      name: profile ? cleanName(profile.name) : '',
+      avatar: (profile && sanitizeAvatar(profile.avatar)) || defaultAvatar()
+    };
+    cachedActive = false;
+    return cached;
   }
 
   function update(patch) {
@@ -120,6 +163,24 @@
     identity.name = cleanName(identity.name);
     identity.avatar = sanitizeAvatar(identity.avatar) || defaultAvatar();
     return save(identity);
+  }
+
+  function isActive() {
+    load();
+    return cachedActive;
+  }
+
+  function hasSavedProfile() {
+    var parsed = readStored(safeStorage('local'), PROFILE_KEY);
+    return !!(parsed && (cleanName(parsed.name) || sanitizeAvatar(parsed.avatar)));
+  }
+
+  // Troca a pessoa desta janela sem mexer no perfil salvo nem nas outras abas.
+  function startNewPerson() {
+    cached = { id: generateId(), name: '', avatar: defaultAvatar() };
+    cachedActive = true;
+    writeStored(safeStorage('session'), SESSION_KEY, cached);
+    return cached;
   }
 
   function setName(name) {
@@ -208,6 +269,9 @@
     load: load,
     save: save,
     update: update,
+    isActive: isActive,
+    hasSavedProfile: hasSavedProfile,
+    startNewPerson: startNewPerson,
     setName: setName,
     setAvatar: setAvatar,
     setEmoji: setEmoji,
