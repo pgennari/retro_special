@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Retro Special — testes do motor</title>
+  <style>
+    body { font-family: ui-monospace, Consolas, monospace; background:#0b0b16; color:#eee; padding:32px; line-height:1.5; }
+    h1 { font-size:18px; }
+    .ok { color:#8ef26a; }
+    .fail { color:#ff6b8a; }
+    li { margin: 6px 0; }
+    .error { color:#ffc857; font-size:12px; margin-left:24px; }
+  </style>
+</head>
+<body>
+  <h1>Retro Special — testes do motor</h1>
+  <div id="summary">Rodando…</div>
+  <ul id="results"></ul>
+  <script src="../shared/engine.js"></script>
+  <script src="./cases.js"></script>
+  <script>
+    (function () {
+      var assert = {
+        ok: function (value, message) {
+          if (!value) throw new Error(message || 'esperava um valor verdadeiro');
+        },
+        equal: function (actual, expected, message) {
+          if (actual !== expected) {
+            throw new Error((message || 'valores diferentes') + ': recebido ' + JSON.stringify(actual) + ', esperado ' + JSON.stringify(expected));
+          }
+        },
+        notEqual: function (actual, expected, message) {
+          if (actual === expected) throw new Error(message || 'esperava valores diferentes');
+        },
+        deepEqual: function (actual, expected, message) {
+          var a = JSON.stringify(actual);
+          var b = JSON.stringify(expected);
+          if (a !== b) throw new Error((message || 'estruturas diferentes') + ': ' + a + ' != ' + b);
+        }
+      };
+      var results = window.RetroEngineTests.run(window.RetroEngine, assert);
+      var passed = results.filter(function (r) { return r.ok; }).length;
+      var failed = results.length - passed;
+      document.getElementById('summary').innerHTML = failed
+        ? '<span class="fail">' + failed + ' falha(s)</span> — ' + passed + ' de ' + results.length + ' passaram'
+        : '<span class="ok">Tudo certo!</span> ' + passed + ' testes passaram';
+      document.title = (failed ? 'FAIL ' : 'PASS ') + passed + '/' + results.length;
+      document.getElementById('results').innerHTML = results.map(function (r) {
+        return '<li class="' + (r.ok ? 'ok' : 'fail') + '">' + (r.ok ? '✓' : '✕') + ' ' + r.name +
+          (r.error ? '<div class="error">' + r.error.replace(/[<>&]/g, function (c) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]; }) + '</div>' : '') +
+          '</li>';
+      }).join('');
+    }());
+  </script>
+</body>
+</html>

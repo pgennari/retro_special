@@ -1,0 +1,23 @@
+{
+  "name": "retro-special",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Board de retrospectiva de sprint com acertos, melhorias, dinâmica de adivinhação e colaboração em tempo real — sem dependências.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node tests/run-node.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "retrospectiva",
+    "sprint",
+    "retro",
+    "sse",
+    "board"
+  ],
+  "license": "MIT"
+}

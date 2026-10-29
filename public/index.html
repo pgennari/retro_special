@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080812">
+  <meta name="description" content="Retro Special — board de retrospectiva de sprint com acertos, melhorias e uma dinâmica de adivinhação.">
+  <title>Retro Special — retrospectiva de sprint</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="bg-aurora" aria-hidden="true"></div>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <div id="app">
+    <!-- ───────────────────────────── HOME ───────────────────────────── -->
+    <section id="home-view" class="view home-view" role="main" hidden>
+      <div class="home-shell">
+        <header class="home-nav">
+          <a class="brand" href="#" data-home-link>
+            <span class="brand-mark" aria-hidden="true">✦</span>
+            <span class="brand-name">retro<span>special</span></span>
+          </a>
+          <div class="nav-right">
+            <span class="demo-chip" id="demo-chip" hidden>modo demo</span>
+            <span class="nav-note">sem cadastro · sem instalação</span>
+          </div>
+        </header>
+
+        <div class="home-hero">
+          <div class="hero-copy">
+            <span class="eyebrow"><span class="eyebrow-dot"></span> sprint retro board</span>
+            <h1 class="hero-title">
+              <span class="hero-title-line">RETRO</span>
+              <span class="hero-title-line hero-title-accent">SPECIAL<span class="title-bang">!</span></span>
+            </h1>
+            <p class="hero-sub">Celebre os acertos, combine as melhorias e descubra <em>quem disse o quê</em> na dinâmica final.</p>
+
+            <div class="floating-board" aria-hidden="true">
+              <div class="float-card float-acertos">
+                <span class="float-tag">Acertos</span>
+                <span class="float-line w-90"></span>
+                <span class="float-line w-70"></span>
+                <span class="float-like">👍 4</span>
+              </div>
+              <div class="float-card float-melhorias">
+                <span class="float-tag">Melhorias</span>
+                <span class="float-line w-80"></span>
+                <span class="float-line w-55"></span>
+                <span class="float-plan">🎯 plano de ação</span>
+              </div>
+              <div class="float-card float-dinamica">
+                <span class="float-tag">Dinâmica</span>
+                <div class="float-avatars"><i>🦊</i><i>🐼</i><i>👾</i></div>
+                <span class="float-line w-60"></span>
+              </div>
+              <span class="float-spark s1">✦</span>
+              <span class="float-spark s2">✦</span>
+              <span class="float-spark s3">＋</span>
+            </div>
+          </div>
+
+          <section class="entry-card" aria-labelledby="entry-title">
+            <div class="entry-glow" aria-hidden="true"></div>
+
+            <!-- passo 1: identidade -->
+            <div id="step-identity" class="step">
+              <div class="step-head">
+                <span class="step-index">01 — QUEM ESTÁ AÍ?</span>
+                <h2 id="entry-title">Se apresente</h2>
+                <p>Seu nome e avatar ficam guardados neste navegador para a próxima retro.</p>
+              </div>
+
+              <div class="invite-banner" id="invite-banner" hidden>
+                <span class="invite-icon">✉</span>
+                <div>
+                  <strong>Você recebeu um convite!</strong>
+                  <span>Sala <b id="invite-code">—</b> · entre para participar</span>
+                </div>
+              </div>
+
+              <div class="identity-grid">
+                <div class="avatar-editor">
+                  <button class="avatar-preview" id="avatar-preview" type="button" aria-label="Trocar avatar">
+                    <span class="avatar-preview-inner" id="avatar-preview-inner"></span>
+                    <span class="avatar-edit-badge" aria-hidden="true">✎</span>
+                  </button>
+                  <button class="link-btn" id="upload-photo-btn" type="button">Enviar foto</button>
+                  <input type="file" id="photo-input" accept="image/png,image/jpeg,image/webp" hidden>
+                </div>
+
+                <div class="identity-fields">
+                  <label class="field">
+                    <span class="field-label">Seu nome</span>
+                    <input id="name-input" class="text-input" type="text" maxlength="40" placeholder="Ex.: Ana Souza" autocomplete="name" spellcheck="false">
+                  </label>
+                  <div class="avatar-picker">
+                    <span class="field-label">ou escolha um avatar</span>
+                    <div class="avatar-options" id="avatar-options" role="listbox" aria-label="Avatares"></div>
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary btn-block btn-continue" id="identity-continue" type="button">
+                <span id="continue-label">Continuar</span>
+                <span class="btn-arrow" aria-hidden="true">→</span>
+              </button>
+              <p class="micro">Dica: escolha um avatar com a sua cara. Ele aparece nas dinâmicas.</p>
+            </div>
+
+            <!-- passo 2: criar / entrar -->
+            <div id="step-lobby" class="step" hidden>
+              <div class="lobby-top">
+                <div class="who-chip" id="lobby-who"></div>
+                <button class="link-btn" id="change-identity" type="button">trocar</button>
+              </div>
+
+              <div class="step-head compact">
+                <span class="step-index">02 — PARA ONDE VAMOS?</span>
+                <h2>Bora de retro?</h2>
+                <p id="lobby-sub">Crie uma sala nova ou entre com o código que o time mandou.</p>
+              </div>
+
+              <div class="invite-banner" id="lobby-invite" hidden>
+                <span class="invite-icon">✉</span>
+                <div>
+                  <strong>Convite para a sala <b id="lobby-invite-code">—</b></strong>
+                  <span>Você será levado direto para lá.</span>
+                </div>
+              </div>
+
+              <div class="lobby-grid">
+                <div class="lobby-card lobby-create">
+                  <span class="lobby-icon">✦</span>
+                  <div>
+                    <h3>Criar uma sala</h3>
+                    <p>Você vira o organizador e conduz a retro.</p>
+                  </div>
+                  <button class="btn btn-primary btn-block" id="create-room-btn" type="button">Criar sala</button>
+                </div>
+
+                <div class="lobby-join">
+                  <div class="lobby-join-head">
+                    <span class="lobby-icon small">#</span>
+                    <div>
+                      <h3>Entrar com código</h3>
+                      <p>Recebeu um código? Cole aqui.</p>
+                    </div>
+                  </div>
+                  <form id="join-form" class="join-form" novalidate>
+                    <input id="room-code-input" class="code-input" type="text" maxlength="8" placeholder="ABC123" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Código da sala">
+                    <button class="btn btn-secondary" type="submit" id="join-submit">Entrar</button>
+                  </form>
+                  <p class="form-error" id="join-error" role="alert" hidden></p>
+                </div>
+              </div>
+
+              <p class="micro" id="demo-note" hidden>Modo demonstração local: abra outra aba para simular outra pessoa.</p>
+            </div>
+          </section>
+        </div>
+
+        <footer class="home-footer">
+          <span>feito para times que gostam de olhar para trás</span>
+          <span class="footer-dots" aria-hidden="true">✦ ✦ ✦</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- ───────────────────────────── SALA ───────────────────────────── -->
+    <section id="room-view" class="view room-view" hidden>
+      <header class="room-header">
+        <div class="room-header-inner">
+          <div class="room-header-left">
+            <a class="brand brand-small" href="#" data-home-link>
+              <span class="brand-mark" aria-hidden="true">✦</span>
+              <span class="brand-name">retro<span>special</span></span>
+              <span class="sr-only">— voltar ao início</span>
+            </a>
+            <button class="code-chip" id="code-chip" type="button" title="Copiar link da sala">
+              <span class="code-label">sala</span>
+              <strong id="room-code">—</strong>
+              <span class="copy-icon" aria-hidden="true">⧉</span>
+              <span class="sr-only">— copiar link da sala</span>
+            </button>
+            <span class="demo-chip" id="room-demo-chip" hidden>demo</span>
+          </div>
+
+          <div class="room-header-right">
+            <span class="live-pill" id="live-pill"><i></i><span id="live-text">ao vivo</span></span>
+            <button class="people-btn" id="people-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Pessoas na sala (0)" title="Pessoas na sala">
+              <span class="avatar-stack" id="avatar-stack"></span>
+              <span class="people-count" id="people-count">0</span>
+            </button>
+            <button class="btn btn-ghost btn-small" id="leave-btn" type="button">Sair</button>
+          </div>
+
+          <div class="people-popover" id="people-popover" role="dialog" aria-label="Pessoas na sala" hidden>
+            <div class="pop-head">
+              <span>Pessoas na sala</span>
+              <span class="pop-count" id="pop-count">0</span>
+            </div>
+            <ul class="people-list" id="people-list"></ul>
+            <p class="pop-hint">O organizador pode remover alguém que não vai participar.</p>
+          </div>
+        </div>
+        <div class="offline-banner" id="offline-banner" hidden>
+          <span class="offline-dot"></span>
+          <span id="offline-text">Reconectando à sala…</span>
+        </div>
+      </header>
+
+      <main class="room-main">
+        <div class="board-grid">
+          <!-- ACERTOS -->
+          <section class="panel panel-acertos" id="panel-acertos" data-panel="acertos">
+            <header class="panel-head">
+              <span class="panel-icon" aria-hidden="true">✓</span>
+              <div class="panel-titles">
+                <h2>Acertos</h2>
+                <p>o que brilhou nesta sprint</p>
+              </div>
+              <span class="count-pill" data-count>0</span>
+              <div class="panel-action" data-action></div>
+            </header>
+
+            <form class="composer" data-composer-form="acertos">
+              <textarea class="composer-input" rows="2" maxlength="600" placeholder="Ex.: o deploy automatizado salvou a sprint…" data-composer aria-label="Novo card de acerto"></textarea>
+              <div class="composer-foot">
+                <span class="composer-hint">Ctrl + Enter adiciona</span>
+                <button class="btn btn-add" type="submit">＋ Adicionar</button>
+              </div>
+            </form>
+
+            <div class="cards" data-cards></div>
+          </section>
+
+          <!-- MELHORIAS -->
+          <section class="panel panel-melhorias" id="panel-melhorias" data-panel="melhorias">
+            <header class="panel-head">
+              <span class="panel-icon" aria-hidden="true">↗</span>
+              <div class="panel-titles">
+                <h2>Melhorias</h2>
+                <p>o que pode ficar ainda melhor</p>
+              </div>
+              <span class="count-pill" data-count>0</span>
+              <div class="panel-action" data-action></div>
+            </header>
+
+            <form class="composer" data-composer-form="melhorias">
+              <textarea class="composer-input" rows="2" maxlength="600" placeholder="Ex.: precisamos quebrar as tarefas em pedaços menores…" data-composer aria-label="Novo card de melhoria"></textarea>
+              <div class="composer-foot">
+                <span class="composer-hint">Ctrl + Enter adiciona</span>
+                <button class="btn btn-add" type="submit">＋ Adicionar</button>
+              </div>
+            </form>
+
+            <div class="cards" data-cards></div>
+          </section>
+
+          <!-- DINÂMICA -->
+          <section class="panel panel-dynamics" id="panel-dynamics" data-panel="dynamics">
+            <header class="panel-head dynamics-head">
+              <span class="panel-icon" aria-hidden="true">🎲</span>
+              <div class="panel-titles">
+                <h2>Dinâmica</h2>
+                <p>quem disse o quê?</p>
+              </div>
+              <span class="phase-chip" id="dynamics-phase">preparando</span>
+              <div class="panel-action" id="dynamics-extra"></div>
+            </header>
+            <div id="dynamics-body" class="dynamics-body"></div>
+          </section>
+        </div>
+
+        <footer class="room-footer">
+          <span>retro special · <span id="footer-code">—</span></span>
+          <span class="room-footer-hint">suas informações ficam salvas neste navegador</span>
+        </footer>
+      </main>
+    </section>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" type="button" aria-label="Fechar">✕</button>
+      <h2 class="modal-title" id="modal-title"></h2>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <div class="shuffle-overlay" id="shuffle-overlay" hidden aria-hidden="true">
+    <div class="shuffle-inner">
+      <span class="shuffle-eyebrow">PREPARANDO A MISTURA</span>
+      <h2>Embaralhando as respostas…</h2>
+      <p>Ninguém mais sabe quem escreveu o quê.</p>
+      <div class="shuffle-stage" id="shuffle-stage"></div>
+      <div class="shuffle-ghosts" id="shuffle-ghosts"></div>
+      <div class="shuffle-foot"><span class="shuffle-loader"></span> apagando as fotos…</div>
+    </div>
+  </div>
+
+  <script src="../shared/engine.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/identity.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/home.js"></script>
+  <script src="assets/js/room.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
