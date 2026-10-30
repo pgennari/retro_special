@@ -3,18 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#080812">
+  <meta name="theme-color" content="#f8f1e3">
   <meta name="description" content="Retro Special — board de retrospectiva de sprint com acertos, melhorias e uma dinâmica de adivinhação.">
   <title>Retro Special — retrospectiva de sprint</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
-  <div class="bg-aurora" aria-hidden="true"></div>
-  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-paper" aria-hidden="true"></div>
 
   <div id="app">
     <!-- ───────────────────────────── HOME ───────────────────────────── -->
@@ -23,7 +22,7 @@
         <header class="home-nav">
           <a class="brand" href="#" data-home-link>
             <span class="brand-mark" aria-hidden="true">✦</span>
-            <span class="brand-name">retro<span>special</span></span>
+            <span class="brand-name">Retro Special<span class="bang">!</span></span>
           </a>
           <div class="nav-right">
             <span class="demo-chip" id="demo-chip" hidden>modo demo</span>
@@ -65,8 +64,6 @@
           </div>
 
           <section class="entry-card" aria-labelledby="entry-title">
-            <div class="entry-glow" aria-hidden="true"></div>
-
             <!-- passo 1: identidade -->
             <div id="step-identity" class="step">
               <div class="step-head">
@@ -182,7 +179,7 @@
           <div class="room-header-left">
             <a class="brand brand-small" href="#" data-home-link>
               <span class="brand-mark" aria-hidden="true">✦</span>
-              <span class="brand-name">retro<span>special</span></span>
+              <span class="brand-name">Retro Special<span class="bang">!</span></span>
               <span class="sr-only">— voltar ao início</span>
             </a>
             <button class="code-chip" id="code-chip" type="button" title="Copiar link da sala">
@@ -191,6 +188,7 @@
               <span class="copy-icon" aria-hidden="true">⧉</span>
               <span class="sr-only">— copiar link da sala</span>
             </button>
+            <span class="org-badge" id="org-badge" hidden>Organizador</span>
             <span class="demo-chip" id="room-demo-chip" hidden>demo</span>
           </div>
 
@@ -219,24 +217,37 @@
       </header>
 
       <main class="room-main">
+        <nav class="room-tabs" id="room-tabs" role="tablist" aria-label="Seções da retro">
+          <button class="room-tab is-active" id="tab-acertos" type="button" role="tab" aria-selected="true" aria-controls="panel-acertos" data-tab="acertos">
+            <span class="tab-label">Acertos</span>
+            <span class="tab-count" data-tab-count="acertos">0</span>
+          </button>
+          <button class="room-tab" id="tab-melhorias" type="button" role="tab" aria-selected="false" aria-controls="panel-melhorias" data-tab="melhorias">
+            <span class="tab-label">Melhorias</span>
+            <span class="tab-count" data-tab-count="melhorias">0</span>
+          </button>
+          <button class="room-tab" id="tab-dynamics" type="button" role="tab" aria-selected="false" aria-controls="panel-dynamics" data-tab="dynamics">
+            <span class="tab-label">Dinâmica</span>
+          </button>
+        </nav>
+
         <div class="board-grid">
           <!-- ACERTOS -->
-          <section class="panel panel-acertos" id="panel-acertos" data-panel="acertos">
+          <section class="panel panel-acertos" id="panel-acertos" data-panel="acertos" role="tabpanel" aria-labelledby="tab-acertos">
             <header class="panel-head">
-              <span class="panel-icon" aria-hidden="true">✓</span>
+              <span class="panel-icon" aria-hidden="true">✅</span>
               <div class="panel-titles">
                 <h2>Acertos</h2>
-                <p>o que brilhou nesta sprint</p>
               </div>
               <span class="count-pill" data-count>0</span>
               <div class="panel-action" data-action></div>
             </header>
 
             <form class="composer" data-composer-form="acertos">
-              <textarea class="composer-input" rows="2" maxlength="600" placeholder="Ex.: o deploy automatizado salvou a sprint…" data-composer aria-label="Novo card de acerto"></textarea>
+              <textarea class="composer-input" rows="2" maxlength="600" placeholder="O que deu certo?" data-composer aria-label="Novo card de acerto"></textarea>
               <div class="composer-foot">
                 <span class="composer-hint">Ctrl + Enter adiciona</span>
-                <button class="btn btn-add" type="submit">＋ Adicionar</button>
+                <button class="btn btn-add" type="submit" aria-label="Adicionar acerto" title="Adicionar acerto"><span aria-hidden="true">＋</span><span class="sr-only">Adicionar acerto</span></button>
               </div>
             </form>
 
@@ -244,22 +255,21 @@
           </section>
 
           <!-- MELHORIAS -->
-          <section class="panel panel-melhorias" id="panel-melhorias" data-panel="melhorias">
+          <section class="panel panel-melhorias" id="panel-melhorias" data-panel="melhorias" role="tabpanel" aria-labelledby="tab-melhorias" hidden>
             <header class="panel-head">
-              <span class="panel-icon" aria-hidden="true">↗</span>
+              <span class="panel-icon" aria-hidden="true">🔧</span>
               <div class="panel-titles">
                 <h2>Melhorias</h2>
-                <p>o que pode ficar ainda melhor</p>
               </div>
               <span class="count-pill" data-count>0</span>
               <div class="panel-action" data-action></div>
             </header>
 
             <form class="composer" data-composer-form="melhorias">
-              <textarea class="composer-input" rows="2" maxlength="600" placeholder="Ex.: precisamos quebrar as tarefas em pedaços menores…" data-composer aria-label="Novo card de melhoria"></textarea>
+              <textarea class="composer-input" rows="2" maxlength="600" placeholder="O que pode melhorar?" data-composer aria-label="Novo card de melhoria"></textarea>
               <div class="composer-foot">
                 <span class="composer-hint">Ctrl + Enter adiciona</span>
-                <button class="btn btn-add" type="submit">＋ Adicionar</button>
+                <button class="btn btn-add" type="submit" aria-label="Adicionar melhoria" title="Adicionar melhoria"><span aria-hidden="true">＋</span><span class="sr-only">Adicionar melhoria</span></button>
               </div>
             </form>
 
@@ -267,12 +277,11 @@
           </section>
 
           <!-- DINÂMICA -->
-          <section class="panel panel-dynamics" id="panel-dynamics" data-panel="dynamics">
+          <section class="panel panel-dynamics" id="panel-dynamics" data-panel="dynamics" role="tabpanel" aria-labelledby="tab-dynamics" hidden>
             <header class="panel-head dynamics-head">
               <span class="panel-icon" aria-hidden="true">🎲</span>
               <div class="panel-titles">
                 <h2>Dinâmica</h2>
-                <p>quem disse o quê?</p>
               </div>
               <span class="phase-chip" id="dynamics-phase">preparando</span>
               <div class="panel-action" id="dynamics-extra"></div>

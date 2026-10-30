@@ -25,6 +25,7 @@
   var connection = null;
   var openToken = 0;
   var status = 'connecting';
+  var activeTab = 'acertos';
 
   var drafts = { acertos: '', melhorias: '', answer: '', question: '' };
   var answerDirty = false;
@@ -100,6 +101,8 @@
     refs.roomCode = document.getElementById('room-code');
     refs.footerCode = document.getElementById('footer-code');
     refs.roomDemoChip = document.getElementById('room-demo-chip');
+    refs.orgBadge = document.getElementById('org-badge');
+    refs.tabs = document.getElementById('room-tabs');
     refs.livePill = document.getElementById('live-pill');
     refs.liveText = document.getElementById('live-text');
     refs.offlineBanner = document.getElementById('offline-banner');
@@ -159,6 +162,8 @@
     refs.leaveBtn.addEventListener('click', leaveRoom);
     refs.peopleBtn.addEventListener('click', togglePeople);
     refs.peopleList.addEventListener('click', handlePeopleClick);
+    refs.tabs.addEventListener('click', handleTabClick);
+    refs.tabs.addEventListener('keydown', handleTabKeydown);
 
     refs.board.addEventListener('click', handleBoardClick);
 
@@ -321,6 +326,49 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * abas
+   * ------------------------------------------------------------------ */
+
+  function setActiveTab(tab) {
+    if (tab !== 'acertos' && tab !== 'melhorias' && tab !== 'dynamics') return;
+    activeTab = tab;
+    updateTabUi();
+  }
+
+  function updateTabUi() {
+    if (!refs.tabs) return;
+    $$('.room-tab', refs.tabs).forEach(function (button) {
+      var isActive = button.getAttribute('data-tab') === activeTab;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      button.tabIndex = isActive ? 0 : -1;
+    });
+    ['acertos', 'melhorias', 'dynamics'].forEach(function (tab) {
+      var panel = document.getElementById('panel-' + tab);
+      if (panel) panel.hidden = tab !== activeTab;
+    });
+  }
+
+  function handleTabClick(event) {
+    var button = event.target.closest('.room-tab');
+    if (!button) return;
+    setActiveTab(button.getAttribute('data-tab'));
+  }
+
+  function handleTabKeydown(event) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    var buttons = $$('.room-tab', refs.tabs);
+    if (!buttons.length) return;
+    var index = buttons.indexOf(document.activeElement);
+    if (index === -1) return;
+    event.preventDefault();
+    var step = event.key === 'ArrowRight' ? 1 : -1;
+    var next = buttons[(index + step + buttons.length) % buttons.length];
+    next.focus();
+    setActiveTab(next.getAttribute('data-tab'));
+  }
+
+  /* ------------------------------------------------------------------ *
    * estado
    * ------------------------------------------------------------------ */
 
@@ -393,6 +441,9 @@
     refs.footerCode.textContent = code;
     refs.peopleBtn.setAttribute('aria-label', 'Pessoas na sala (0)');
     refs.roomDemoChip.hidden = !Retro.env.demo;
+    if (refs.orgBadge) refs.orgBadge.hidden = true;
+    activeTab = 'acertos';
+    updateTabUi();
     refs.avatarStack.innerHTML = '';
     refs.peopleCount.textContent = '0';
     refs.peopleList.innerHTML = '';
@@ -444,6 +495,7 @@
     refs.roomCode.textContent = current.code;
     refs.footerCode.textContent = current.code;
     refs.roomDemoChip.hidden = !Retro.env.demo;
+    if (refs.orgBadge) refs.orgBadge.hidden = !current.isOrganizer;
 
     var users = current.users.slice().sort(function (a, b) {
       if (a.connected !== b.connected) return a.connected ? -1 : 1;
@@ -500,13 +552,15 @@
     if (!column || !panel) return;
 
     panel.count.textContent = String(column.cards.length);
+    var tabCount = $('[data-tab-count="' + key + '"]', refs.tabs);
+    if (tabCount) tabCount.textContent = String(column.cards.length);
 
     if (column.revealed) {
       panel.action.innerHTML = '<span class="state-pill revealed">✓ revelado</span>';
     } else if (current.isOrganizer) {
       panel.action.innerHTML = '<button class="btn btn-reveal" type="button" data-action="reveal-column" ' +
         (column.cards.length ? '' : 'disabled title="Adicione pelo menos um card primeiro"') +
-        '>👁 Revelar</button>';
+        '>👻 Revelar tudo</button>';
     } else {
       panel.action.innerHTML = '<span class="state-pill">🔒 oculto</span>';
     }
@@ -529,12 +583,13 @@
     var isLocked = !card.canRead;
     var plan = card.actionPlan || { text: '', assignees: [] };
 
-    var actionsHTML = '';
-    if (card.canRemove) {
-      actionsHTML += '<button class="icon-btn danger" type="button" data-remove-card="' + esc(card.id) + '" title="Remover card">✕</button>';
-    }
+    var removeHTML = card.canRemove
+      ? '<button class="card-remove icon-btn danger" type="button" data-remove-card="' + esc(card.id) + '" title="Remover card" aria-label="Remover card">✕</button>'
+      : '';
+
+    var likeHTML = '';
     if (column.revealed) {
-      actionsHTML += '<button class="like-btn' + (card.likedByMe ? ' is-liked' : '') + '" type="button" ' +
+      likeHTML = '<button class="like-btn' + (card.likedByMe ? ' is-liked' : '') + '" type="button" ' +
         'data-like="' + esc(card.id) + '" ' +
         'style="--heat:' + (heat / 8).toFixed(2) + '" ' +
         'aria-pressed="' + (card.likedByMe ? 'true' : 'false') + '" ' +
@@ -547,7 +602,7 @@
     if (key === 'melhorias') {
       if (plan.text || plan.assignees.length) {
         planHTML = '<div class="action-plan">' +
-          '<div class="action-plan-head">🎯 plano de ação' +
+          '<div class="action-plan-head"><span>📝 Plano de ação</span>' +
           (card.canEditPlan ? '<button class="icon-btn" type="button" data-plan="' + esc(card.id) + '" title="Editar plano de ação">✎</button>' : '') +
           '</div>' +
           (plan.text ? '<p class="action-plan-text">' + esc(plan.text) + '</p>' : '') +
@@ -557,20 +612,20 @@
               return user ? ui.userAvatar(user, { size: 19, ring: false }) : '';
             }).join('') + '</div>'
             : '') +
+          (card.canEditPlan ? '<button class="link-btn plan-link" type="button" data-plan="' + esc(card.id) + '">📝 Editar plano e responsáveis</button>' : '') +
           '</div>';
       } else if (card.canEditPlan) {
-        planHTML = '<div class="plan-empty"><span>Sem plano de ação ainda</span>' +
-          '<button class="link-btn" type="button" data-plan="' + esc(card.id) + '">Definir plano</button></div>';
+        planHTML = '<div class="plan-empty"><span>Sem plano de ação.</span>' +
+          '<button class="link-btn" type="button" data-plan="' + esc(card.id) + '">📝 Definir plano e responsáveis</button></div>';
       }
     }
 
     return '<article class="card' + (isLocked ? ' is-locked' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
+      removeHTML +
       '<p class="card-text">' + esc(card.text) + '</p>' +
       (isLocked ? '<div class="card-lock">🔒 <b>conteúdo oculto</b> · o organizador revela para todos</div>' : '') +
-      (actionsHTML
-        ? '<div class="card-foot"><div class="card-actions">' + actionsHTML + '</div></div>'
-        : '') +
       planHTML +
+      (likeHTML ? '<div class="card-foot"><div class="card-actions">' + likeHTML + '</div></div>' : '') +
       '</article>';
   }
 
@@ -656,7 +711,8 @@
     }
     var question = drafts.question || '';
     var disabled = !question.trim();
-    return '<div class="dyn-setup">' +
+    return '<span class="dyn-panel-label">✏️ Painel do organizador</span>' +
+      '<div class="dyn-setup">' +
       '<div class="dyn-copy">' +
         '<h3>Faça a pergunta da rodada</h3>' +
         '<p>Algo leve, específico e que renda boas histórias. Todos respondem escondido — depois o time tenta adivinhar quem escreveu o quê.</p>' +
