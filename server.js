@@ -3,6 +3,7 @@
  *
  * - API REST para criar/entrar e executar ações
  * - Server-Sent Events para sincronizar a sala em tempo real
+ * - Persistência opcional no Firestore (REST + service account)
  *
  * Basta rodar: node server.js
  */
@@ -11,17 +12,24 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const Engine = require('./shared/engine.js');
+const Engine = require('./public/assets/js/engine.js');
+const store = require('./lib/store.js');
 
 const PORT = Number(process.env.PORT || 3030);
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
-const SHARED_DIR = path.join(ROOT, 'shared');
 const MAX_BODY = 4 * 1024 * 1024;
+const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
 
 const rooms = new Map(); // code -> room
 const streams = new Map(); // code -> Map<userId, Set<res>>
+const loading = new Map(); // code -> Promise<room|null>
+
+const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -57,6 +65,21 @@ function sendJson(res, status, body) {
 
 function sendError(res, status, message) {
   sendJson(res, status, { ok: false, error: message });
+}
+
+function corsOrigin(req) {
+  const origin = String(req.headers.origin || '').replace(/\/+$/, '');
+  if (!ALLOWED_ORIGINS.length) return '*';
+  if (!origin) return null;
+  return ALLOWED_ORIGINS.indexOf(origin) === -1 ? null : origin;
+}
+
+function applyCors(req, res) {
+  const allowed = corsOrigin(req);
+  if (allowed) res.setHeader('Access-Control-Allow-Origin', allowed);
+  if (allowed !== '*') res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
 function readJson(req) {
@@ -106,6 +129,101 @@ function safeJoin(baseDir, relativePath) {
   const target = path.resolve(baseDir, '.' + path.posix.normalize('/' + relativePath));
   if (target !== baseDir && !target.startsWith(baseDir + path.sep)) return null;
   return target;
+}
+
+/* ------------------------------------------------------------------ *
+ * persistência / carregamento sob demanda
+ * ------------------------------------------------------------------ */
+
+function isRoomShapeValid(room) {
+  return !!(
+    room &&
+    typeof room.code === 'string' &&
+    Array.isArray(room.users) &&
+    room.columns &&
+    room.columns.acertos &&
+    room.columns.melhorias &&
+    room.dynamics
+  );
+}
+
+function storeError(error) {
+  console.error('[store]', error && error.stack ? error.stack : error);
+  return Object.assign(new Error('Não consegui acessar os dados da sala. Tente novamente.'), { status: 503 });
+}
+
+async function getRoom(rawCode) {
+  const code = Engine.normalizeCode(rawCode);
+  if (!code) return null;
+  if (rooms.has(code)) return rooms.get(code);
+  if (loading.has(code)) return loading.get(code);
+
+  const pending = (async () => {
+    let room;
+    try {
+      room = await store.loadRoom(code);
+    } catch (error) {
+      throw storeError(error);
+    }
+    if (!room) return null;
+
+    if (!isRoomShapeValid(room)) {
+      try { await store.deleteRoom(code); } catch (error) { /* noop */ }
+      return null;
+    }
+
+    room.code = code;
+    room.updatedAt = Number(room.updatedAt) || Number(room.createdAt) || Date.now();
+    // Ao carregar do banco não há SSE aberto: todos voltam como offline
+    // e cada pessoa fica online de novo quando abrir o stream.
+    room.users.forEach((user) => { user.connected = false; });
+
+    if (Date.now() - room.updatedAt > ROOM_TTL_MS) {
+      try { await store.deleteRoom(code); } catch (error) { /* noop */ }
+      return null;
+    }
+
+    rooms.set(code, room);
+    return room;
+  })();
+
+  loading.set(code, pending);
+  try {
+    return await pending;
+  } finally {
+    if (loading.get(code) === pending) loading.delete(code);
+  }
+}
+
+async function allocateRoom(identity, requestedCode) {
+  let code = Engine.normalizeCode(requestedCode);
+  if (!code || rooms.has(code) || loading.has(code)) code = '';
+
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (!code) {
+      do {
+        code = Engine.randomCode(6);
+      } while (rooms.has(code) || loading.has(code));
+    }
+
+    const room = Engine.createRoom(identity, code);
+    try {
+      // quando o Firestore está ativo, a criação é atômica:
+      // se o código já existir, tenta outro.
+      await store.createRoom(room);
+    } catch (error) {
+      if (error && (error.status === 409 || error.code === 'already-exists' || error.conflict)) {
+        code = '';
+        continue;
+      }
+      throw storeError(error);
+    }
+
+    rooms.set(code, room);
+    return room;
+  }
+
+  throw Object.assign(new Error('Não consegui criar a sala. Tente novamente.'), { status: 503 });
 }
 
 /* ------------------------------------------------------------------ *
@@ -159,14 +277,14 @@ function cleanupUserStreams(code, userId) {
     byUser.delete(userId);
     const room = rooms.get(code);
     if (room && Engine.setConnected(room, userId, false)) {
+      store.saveRoom(room);
       broadcast(code, { kind: 'presence', userId, connected: false });
     }
   }
 }
 
-function openStream(req, res, code, userId) {
-  const room = rooms.get(code);
-  if (!room) return sendError(res, 404, 'Sala não encontrada.');
+function openStream(req, res, room, userId) {
+  const code = room.code;
   const user = Engine.findUser(room, userId);
   if (!user) return sendError(res, 403, 'Você não está nesta sala.');
 
@@ -174,8 +292,7 @@ function openStream(req, res, code, userId) {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no',
-    'Access-Control-Allow-Origin': '*'
+    'X-Accel-Buffering': 'no'
   });
   res.write('retry: 1500\n\n');
   res.flushHeaders && res.flushHeaders();
@@ -185,6 +302,7 @@ function openStream(req, res, code, userId) {
 
   const becameConnected = Engine.setConnected(room, userId, true);
   if (becameConnected) {
+    store.saveRoom(room);
     broadcast(code, { kind: 'presence', userId, connected: true });
   }
 
@@ -218,10 +336,14 @@ async function handleApi(req, res, url) {
   const segments = url.pathname.split('/').filter(Boolean);
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
+    const persistence = store.status();
     return sendJson(res, 200, {
       ok: true,
       rooms: rooms.size,
-      uptime: Math.round(process.uptime())
+      uptime: Math.round(process.uptime()),
+      persistence: persistence.enabled ? 'firestore' : 'memory',
+      pendingWrites: persistence.pending,
+      storeError: persistence.lastError || null
     });
   }
 
@@ -229,20 +351,11 @@ async function handleApi(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/rooms') {
     const body = await readJson(req);
     const identity = body.identity || {};
-    let code = Engine.normalizeCode(body.code);
-    if (!code || rooms.has(code)) {
-      let attempts = 0;
-      do {
-        code = Engine.randomCode(6);
-        attempts += 1;
-      } while (rooms.has(code) && attempts < 100);
-    }
-    const room = Engine.createRoom(identity, code);
-    rooms.set(code, room);
+    const room = await allocateRoom(identity, body.code);
     const owner = room.users[0];
     return sendJson(res, 201, {
       ok: true,
-      code,
+      code: room.code,
       user: owner,
       state: Engine.getState(room, owner.id)
     });
@@ -251,7 +364,7 @@ async function handleApi(req, res, url) {
   // GET /api/rooms/:code
   if (req.method === 'GET' && segments.length === 3 && segments[1] === 'rooms') {
     const code = Engine.normalizeCode(segments[2]);
-    const room = rooms.get(code);
+    const room = await getRoom(code);
     if (!room) return sendError(res, 404, 'Sala não encontrada. Confira o código.');
     return sendJson(res, 200, {
       ok: true,
@@ -264,11 +377,12 @@ async function handleApi(req, res, url) {
   // POST /api/rooms/:code/join
   if (req.method === 'POST' && segments.length === 4 && segments[1] === 'rooms' && segments[3] === 'join') {
     const code = Engine.normalizeCode(segments[2]);
-    const room = rooms.get(code);
+    const room = await getRoom(code);
     if (!room) return sendError(res, 404, 'Sala não encontrada. Confira o código.');
     const body = await readJson(req);
     const result = Engine.joinRoom(room, body.identity || {});
     if (!result.ok) return sendError(res, 400, result.error);
+    store.saveRoom(room);
     if (result.isNew) {
       broadcast(code, { kind: 'member-joined', userId: result.user.id });
     } else {
@@ -287,18 +401,21 @@ async function handleApi(req, res, url) {
   if (req.method === 'GET' && segments.length === 4 && segments[1] === 'rooms' && segments[3] === 'stream') {
     const code = Engine.normalizeCode(segments[2]);
     const userId = url.searchParams.get('userId') || '';
-    return openStream(req, res, code, userId);
+    const room = await getRoom(code);
+    if (!room) return sendError(res, 404, 'Sala não encontrada.');
+    return openStream(req, res, room, userId);
   }
 
   // POST /api/rooms/:code/actions
   if (req.method === 'POST' && segments.length === 4 && segments[1] === 'rooms' && segments[3] === 'actions') {
     const code = Engine.normalizeCode(segments[2]);
-    const room = rooms.get(code);
+    const room = await getRoom(code);
     if (!room) return sendError(res, 404, 'Sala não encontrada.');
     const body = await readJson(req);
     const userId = String(body.userId || '');
     const result = Engine.applyAction(room, userId, String(body.type || ''), body.payload || {});
     if (!result.ok) return sendError(res, 400, result.error);
+    store.saveRoom(room);
     if (result.event) {
       result.event.actorId = userId;
       broadcast(code, result.event);
@@ -329,10 +446,11 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // libera CORS simples para EventSource/fetch em outros hosts da rede
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  applyCors(req, res);
+  if (req.headers.origin && ALLOWED_ORIGINS.length && !corsOrigin(req)) {
+    sendError(res, 403, 'Origem não permitida.');
+    return;
+  }
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
@@ -364,12 +482,6 @@ const server = http.createServer(async (req, res) => {
     return serveFile(res, path.join(PUBLIC_DIR, 'index.html'));
   }
 
-  if (pathname.startsWith('/shared/')) {
-    const file = safeJoin(SHARED_DIR, pathname.slice('/shared/'.length));
-    if (!file) return sendError(res, 403, 'Acesso negado.');
-    return serveFile(res, file);
-  }
-
   if (pathname.startsWith('/assets/')) {
     const file = safeJoin(PUBLIC_DIR, pathname.slice(1));
     if (!file) return sendError(res, 403, 'Acesso negado.');
@@ -393,16 +505,22 @@ const server = http.createServer(async (req, res) => {
   res.end('Não encontrado.');
 });
 
-// limpeza de salas abandonadas
-setInterval(() => {
-  const cutoff = Date.now() - 6 * 60 * 60 * 1000;
-  rooms.forEach((room, code) => {
+/* ------------------------------------------------------------------ *
+ * limpeza e encerramento
+ * ------------------------------------------------------------------ */
+
+async function cleanupRooms() {
+  const cutoff = Date.now() - ROOM_TTL_MS;
+
+  for (const [code, room] of Array.from(rooms.entries())) {
     const hasStreams = streams.has(code) && Array.from(streams.get(code).values()).some((set) => set.size > 0);
     if (!hasStreams && room.updatedAt < cutoff) {
       rooms.delete(code);
       streams.delete(code);
+      try { await store.deleteRoom(code); } catch (error) { console.error('[store] falha ao apagar sala antiga', code, error.message); }
     }
-  });
+  }
+
   // limite de segurança
   if (rooms.size > 500) {
     const oldest = Array.from(rooms.entries()).sort((a, b) => a[1].updatedAt - b[1].updatedAt);
@@ -411,14 +529,39 @@ setInterval(() => {
       const code = oldest[i][0];
       if (!streams.has(code)) {
         rooms.delete(code);
+        try { await store.deleteRoom(code); } catch (error) { console.error('[store] falha ao apagar sala antiga', code, error.message); }
       }
     }
   }
+}
+
+setInterval(() => {
+  cleanupRooms().catch((error) => console.error('[cleanup]', error.message));
 }, 10 * 60 * 1000).unref();
+
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log('\n  ' + signal + ': salvando salas e encerrando…');
+  store.flush()
+    .catch((error) => console.error('[store] falha ao salvar no encerramento', error.message))
+    .finally(() => {
+      setTimeout(() => process.exit(0), 50);
+    });
+  setTimeout(() => process.exit(0), 8000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 server.listen(PORT, HOST, () => {
   const address = HOST === '0.0.0.0' ? 'localhost' : HOST;
-  console.log('\n  Retro Special rodando em http://' + address + ':' + PORT + '\n');
+  const persistence = store.status();
+  console.log('\n  Retro Special rodando em http://' + address + ':' + PORT);
+  console.log('  persistência: ' + (persistence.enabled ? 'Firestore (' + persistence.projectId + ')' : 'memória (local)'));
+  if (persistence.lastError) console.log('  atenção: ' + persistence.lastError);
+  console.log('');
 });
 
 server.on('error', (error) => {

@@ -1,7 +1,7 @@
 /* Roda os casos do motor no Node: npm test */
 'use strict';
 
-const engine = require('../shared/engine.js');
+const engine = require('../public/assets/js/engine.js');
 const cases = require('./cases.js');
 
 const assert = {

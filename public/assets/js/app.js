@@ -9,10 +9,18 @@
 
   var params = new URLSearchParams(window.location.search);
   var demo = window.location.protocol === 'file:' || params.get('demo') === '1';
+  var localHost = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+  var isLocal = window.location.protocol === 'file:' || localHost;
+  var configuredBase = window.RETRO_CONFIG && typeof window.RETRO_CONFIG.apiBase === 'string'
+    ? window.RETRO_CONFIG.apiBase.trim().replace(/\/+$/, '')
+    : '';
 
   Retro.env = {
     demo: demo,
-    protocol: window.location.protocol
+    protocol: window.location.protocol,
+    // em localhost a API roda na mesma origem; publicado, aponta para o Render
+    apiBase: isLocal ? '' : configuredBase,
+    hosted: !isLocal
   };
 
   var homeView = null;
@@ -24,6 +32,9 @@
     var hash = window.location.hash || '';
     var match = hash.match(/^#\/?sala\/([A-Za-z0-9]{4,8})/i);
     if (match) return ui.normalizeCode(match[1]);
+    // links antigos no formato /sala/CODIGO (Firebase Hosting reescreve para o index)
+    var pathMatch = window.location.pathname.match(/^\/sala\/([A-Za-z0-9]{4,8})\/?$/i);
+    if (pathMatch) return ui.normalizeCode(pathMatch[1]);
     var search = new URLSearchParams(window.location.search);
     var queryCode = search.get('sala') || search.get('room');
     if (queryCode) return ui.normalizeCode(queryCode);
@@ -51,6 +62,12 @@
         Retro.home.render({ inviteCode: code });
         return;
       }
+      // normaliza /sala/CODIGO para /#/sala/CODIGO ao abrir a sala
+      if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(window.location.pathname)) {
+        try {
+          history.replaceState(null, '', '/#/sala/' + code);
+        } catch (error) { /* noop */ }
+      }
       setView('room');
       document.title = titleForRoom(code);
       var initialState = null;
@@ -73,6 +90,11 @@
     if (!code) return;
     pendingState = initialState ? { code: code, state: initialState } : null;
     var target = '#/sala/' + code;
+    if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(window.location.pathname)) {
+      try {
+        history.replaceState(null, '', '/' + target);
+      } catch (error) { /* noop */ }
+    }
     if (window.location.hash === target) {
       setView('room');
       document.title = titleForRoom(code);
@@ -88,12 +110,14 @@
   function goHome(options) {
     Retro.room.close();
     setView('home');
-    if (window.location.hash || params.get('sala') || params.get('room')) {
+    var entryPath = /^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(window.location.pathname);
+    if (window.location.hash || entryPath || params.get('sala') || params.get('room')) {
       try {
         var url = new URL(window.location.href);
         url.hash = '';
         url.searchParams.delete('sala');
         url.searchParams.delete('room');
+        if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(url.pathname)) url.pathname = '/';
         history.replaceState(null, '', url.pathname + url.search);
       } catch (error) {
         history.replaceState(null, '', window.location.pathname);
@@ -109,6 +133,7 @@
     url.hash = '';
     url.searchParams.delete('sala');
     url.searchParams.delete('room');
+    if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(url.pathname)) url.pathname = '/';
     if (Retro.env.demo) {
       url.searchParams.set('demo', '1');
     } else {

@@ -1,0 +1,25 @@
+# Backend no Render (plano free) + Firestore no Firebase.
+#
+# Depois de criar o Blueprint, preencha no painel do Render:
+#   FIREBASE_SERVICE_ACCOUNT = conteúdo do JSON da service account
+# e confira se a URL do serviço é https://retro-special-api.onrender.com.
+# Se o Render escolher outro nome, atualize public/assets/js/config.js.
+services:
+  - type: web
+    name: retro-special-api
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: FIREBASE_PROJECT_ID
+        value: retro-special-pgennari
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://retro-special-pgennari.web.app,https://retro-special-pgennari.firebaseapp.com

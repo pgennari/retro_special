@@ -18,6 +18,22 @@
     return !!(Retro.env && Retro.env.demo);
   }
 
+  function apiBase() {
+    return Retro.env && Retro.env.apiBase ? String(Retro.env.apiBase).replace(/\/+$/, '') : '';
+  }
+
+  function apiURL(path) {
+    return apiBase() + path;
+  }
+
+  function missingBase() {
+    return !!(Retro.env && Retro.env.hosted && !apiBase());
+  }
+
+  function configError() {
+    return apiError('O servidor da sala não está configurado. Ajuste assets/js/config.js.', 0);
+  }
+
   function apiError(message, status) {
     var error = new Error(message || 'Algo deu errado.');
     error.status = status || 0;
@@ -25,9 +41,10 @@
   }
 
   async function request(path, options) {
+    if (missingBase()) throw configError();
     var response;
     try {
-      response = await fetch(path, options);
+      response = await fetch(apiURL(path), options);
     } catch (error) {
       throw apiError('Não consegui falar com o servidor. Ele está rodando?', 0);
     }
@@ -69,7 +86,12 @@
   }
 
   function realConnect(code, userId, handlers) {
-    var source = new EventSource('/api/rooms/' + encodeURIComponent(code) + '/stream?userId=' + encodeURIComponent(userId));
+    if (missingBase()) {
+      if (handlers.onStatus) setTimeout(function () { handlers.onStatus('offline'); }, 0);
+      if (handlers.onKicked) setTimeout(function () { handlers.onKicked(configError().message); }, 0);
+      return { close: function () {} };
+    }
+    var source = new EventSource(apiURL('/api/rooms/' + encodeURIComponent(code) + '/stream?userId=' + encodeURIComponent(userId)));
     var closed = false;
     var errors = 0;
 
@@ -84,7 +106,7 @@
       errors += 1;
       if (handlers.onStatus) handlers.onStatus('reconnecting');
       if (errors === 4) {
-        fetch('/api/rooms/' + encodeURIComponent(code)).then(function (response) {
+        fetch(apiURL('/api/rooms/' + encodeURIComponent(code))).then(function (response) {
           if (closed) return;
           if (response.status === 404) {
             closed = true;
