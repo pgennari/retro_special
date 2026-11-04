@@ -102,15 +102,12 @@ O plano free do Render dorme após alguns minutos sem tráfego; a primeira visit
 ### 3. Front-end no Firebase Hosting
 
 - Workflow: `.github/workflows/firebase-deploy.yml` (testa e publica a cada push na `main`).
-- URL: **https://retro-special-pgennari.web.app**
-- Deploy manual: `firebase deploy --only hosting --project retro-special-pgennari`
+- URL principal: **https://retro-special.web.app**
+- Espelho mantido no ar: **https://retro-special-pgennari.web.app**
+- Deploy manual: `firebase deploy --only hosting --project retro-special-pgennari` (publica nos dois sites configurados em `firebase.json`)
 - Autenticação do GitHub Actions: Workload Identity Federation com a service account `github-deployer@retro-special-pgennari.iam.gserviceaccount.com` (secrets `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_SERVICE_ACCOUNT`). Ela precisa da permissão de **Firebase Hosting Admin**.
 
-O App Hosting saiu da configuração do repositório (`apphosting.yaml` não existe mais). Para parar de cobrar e voltar ao plano **Spark**:
-
-1. Valide a sala completa pelo Hosting usando a API do Render.
-2. Apague o backend antigo **retro-special** no console do Firebase (App Hosting) ou rode `firebase apphosting:backends:delete retro-special --project retro-special-pgennari`.
-3. No console do Firebase, faça o downgrade para o plano **Spark**.
+O App Hosting saiu da configuração do repositório (`apphosting.yaml` não existe mais). O backend antigo **retro-special** está inativo e a URL dele responde 404. Com o projeto no plano **Spark**, a API do App Hosting recusa até a exclusão do registro (`403 — please check billing account`); ele pode ficar como registro inerte, pois não gera cobrança. Só seria possível apagá-lo reativando o billing temporariamente.
 
 O backend do Render e o Firestore têm camadas gratuitas; o Hosting no Spark inclui 10 GB/mês de transferência.
 

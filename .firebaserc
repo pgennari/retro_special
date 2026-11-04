@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "retro-special-pgennari"
+  },
+  "targets": {
+    "retro-special-pgennari": {
+      "hosting": {
+        "primary": [
+          "retro-special"
+        ],
+        "legacy": [
+          "retro-special-pgennari"
+        ]
+      }
+    }
   }
 }

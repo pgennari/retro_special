@@ -26,10 +26,22 @@ const rooms = new Map(); // code -> room
 const streams = new Map(); // code -> Map<userId, Set<res>>
 const loading = new Map(); // code -> Promise<room|null>
 
-const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || '')
+// Origens oficiais do projeto. Continuam liberadas mesmo que a variável
+// ALLOWED_ORIGINS do Render fique desatualizada em relação a este arquivo.
+const PROJECT_ORIGINS = [
+  'https://retro-special.web.app',
+  'https://retro-special-pgennari.web.app',
+  'https://retro-special-pgennari.firebaseapp.com'
+];
+
+const CONFIGURED_ORIGINS = String(process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map((origin) => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
+
+const ALLOWED_ORIGINS = CONFIGURED_ORIGINS.length
+  ? Array.from(new Set(CONFIGURED_ORIGINS.concat(PROJECT_ORIGINS)))
+  : [];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
