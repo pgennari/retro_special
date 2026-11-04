@@ -1111,6 +1111,24 @@ img { max-width: 100%; }
 
 .people-count { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--ink-strong); }
 
+.header-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 9px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--border);
+}
+
+.header-user-avatar { --size: 24px; }
+
+.header-user-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .avatar-more { display: inline-flex; align-items: center; justify-content: center; }
 
 .people-popover {

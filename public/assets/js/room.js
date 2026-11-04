@@ -113,6 +113,9 @@
     refs.popCount = document.getElementById('pop-count');
     refs.avatarStack = document.getElementById('avatar-stack');
     refs.peopleCount = document.getElementById('people-count');
+    refs.headerUser = document.getElementById('header-user');
+    refs.headerUserAvatar = document.getElementById('header-user-avatar');
+    refs.headerUserName = document.getElementById('header-user-name');
     refs.leaveBtn = document.getElementById('leave-btn');
     refs.phase = document.getElementById('dynamics-phase');
     refs.extra = document.getElementById('dynamics-extra');
@@ -442,6 +445,7 @@
     refs.peopleBtn.setAttribute('aria-label', 'Pessoas na sala (0)');
     refs.roomDemoChip.hidden = !Retro.env.demo;
     if (refs.orgBadge) refs.orgBadge.hidden = true;
+    if (refs.headerUser) refs.headerUser.hidden = true;
     activeTab = 'acertos';
     updateTabUi();
     refs.avatarStack.innerHTML = '';
@@ -496,6 +500,7 @@
     refs.footerCode.textContent = current.code;
     refs.roomDemoChip.hidden = !Retro.env.demo;
     if (refs.orgBadge) refs.orgBadge.hidden = !current.isOrganizer;
+    renderHeaderUser();
 
     var users = current.users.slice().sort(function (a, b) {
       if (a.connected !== b.connected) return a.connected ? -1 : 1;
@@ -516,6 +521,19 @@
     refs.peopleCount.textContent = String(users.length);
     refs.peopleBtn.setAttribute('aria-label', 'Pessoas na sala (' + users.length + ')');
     refs.popCount.textContent = String(users.length);
+  }
+
+  function renderHeaderUser() {
+    var user = currentUserId ? findUser(currentUserId) : null;
+    if (!user) {
+      if (refs.headerUser) refs.headerUser.hidden = true;
+      return;
+    }
+    if (refs.headerUserAvatar) {
+      refs.headerUserAvatar.innerHTML = ui.userAvatar(user, { size: 24, ring: user.connected ? user.color : false });
+    }
+    if (refs.headerUserName) refs.headerUserName.textContent = user.name || 'Participante';
+    if (refs.headerUser) refs.headerUser.hidden = false;
   }
 
   function renderPeople() {
