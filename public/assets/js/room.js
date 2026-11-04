@@ -334,7 +334,12 @@
 
   function setActiveTab(tab) {
     if (tab !== 'acertos' && tab !== 'melhorias' && tab !== 'dynamics') return;
-    activeTab = tab;
+    // Clicar no botao já ativo desliga a secao da Dinamica (toggle).
+    if (activeTab === tab) {
+      activeTab = null;
+    } else {
+      activeTab = tab;
+    }
     updateTabUi();
   }
 
