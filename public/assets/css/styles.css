@@ -984,9 +984,9 @@ img { max-width: 100%; }
 
 .room-header-inner {
   position: relative;
-  max-width: 1080px;
-  margin: 0 auto;
+  width: 100%;
   padding: 13px 24px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
