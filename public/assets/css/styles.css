@@ -2292,17 +2292,36 @@ img { max-width: 100%; }
 .assignment .avatar { --size: 27px !important; }
 .assignment .voter-badge {
   position: absolute;
-  right: -4px;
-  bottom: -4px;
-  width: 17px;
-  height: 17px;
+  right: -6px;
+  bottom: -6px;
+  width: 26px;
+  height: 26px;
   overflow: hidden;
   border: 2px solid var(--border);
   border-radius: 50%;
   background: var(--surface);
+  box-shadow: 2px 2px 0 var(--border);
 }
 
-.assignment .voter-badge .avatar { --size: 15px !important; }
+.assignment .voter-badge .avatar { --size: 20px !important; }
+
+.assignment .voter-name {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ink-strong);
+  background: var(--surface);
+  padding: 2px 7px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 var(--border);
+  pointer-events: none;
+  z-index: 2;
+}
 .assignment.mine { border-color: var(--teal); cursor: pointer; }
 .assignment.mine:hover { transform: scale(1.12); border-color: var(--danger); }
 .assignment.correct { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }

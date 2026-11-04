@@ -896,7 +896,8 @@
         'data-voter="' + esc(row.voter.id) + '" data-target="' + esc(row.target.id) + '" data-answer="' + esc(answerId) + '" ' +
         'title="' + esc(title) + '" ' + (editable ? '' : 'disabled') + '>' +
         ui.avatarHTML(row.target.avatar, { size: 25 }) +
-        '<span class="voter-badge">' + ui.avatarHTML(row.voter.avatar, { size: 15 }) + '</span>' +
+        '<span class="voter-badge">' + ui.avatarHTML(row.voter.avatar, { size: 20 }) + '</span>' +
+        '<span class="voter-name">' + esc(row.voter.name) + '</span>' +
         (editable ? '<span class="remove-x" aria-hidden="true">×</span>' : '') +
         '</button>';
     }).join('');
