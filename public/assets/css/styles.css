@@ -1256,9 +1256,13 @@ img { max-width: 100%; }
    ========================================================================== */
 
 .room-main {
-  max-width: 1080px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: 22px 24px 40px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .room-tabs {
@@ -1319,6 +1323,8 @@ img { max-width: 100%; }
   grid-template-columns: 1fr 1fr;
   gap: 26px;
   align-items: start;
+  flex: 1;
+  min-height: 0;
 }
 
 .panel-dynamics {
@@ -1332,6 +1338,9 @@ img { max-width: 100%; }
   background: transparent;
   box-shadow: none;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .panel-acertos {
@@ -1490,6 +1499,9 @@ img { max-width: 100%; }
   gap: 15px;
   min-height: 90px;
   padding: 0 0 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .card {
@@ -2979,7 +2991,7 @@ img { max-width: 100%; }
   .entry-card { justify-self: center; }
   .home-footer { margin-top: 8px; }
 
-  .room-main { max-width: 760px; }
+  .room-main { width: 100%; }
   .room-tabs { justify-content: center; }
   .reveal-layout { grid-template-columns: 1fr; }
   .scoreboard { position: static; }
