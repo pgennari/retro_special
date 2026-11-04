@@ -844,6 +844,7 @@
           likedByMe: card.likes.indexOf(viewerId) !== -1,
           canRead: column.revealed || card.authorId === viewerId,
           canRemove: card.authorId === viewerId || isOrg,
+          isMine: card.authorId === viewerId,
           actionPlan: {
             text: card.actionPlan.text,
             assignees: card.actionPlan.assignees.filter(function (id) { return !!findUser(room, id); }),

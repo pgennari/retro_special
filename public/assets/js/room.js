@@ -605,7 +605,7 @@
     var heatClass = heat === 0 ? '' : (heat <= 2 ? ' heat-1' : heat <= 4 ? ' heat-2' : heat <= 6 ? ' heat-3' : ' heat-4');
     var isLocked = !card.canRead;
     var plan = card.actionPlan || { text: '', assignees: [] };
-    var isMine = card.authorId === currentUserId;
+    var isMine = card.isMine;
 
     var removeHTML = card.canRemove
       ? '<button class="card-remove icon-btn danger" type="button" data-remove-card="' + esc(card.id) + '" title="Remover card" aria-label="Remover card">✕</button>'
