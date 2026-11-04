@@ -1271,6 +1271,7 @@ img { max-width: 100%; }
   gap: 11px;
   margin: 0 0 26px;
   padding: 0;
+  justify-content: flex-end;
 }
 
 .room-tab {
