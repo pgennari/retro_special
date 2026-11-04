@@ -1560,10 +1560,10 @@ img { max-width: 100%; }
 
 .card-mine-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 2px 7px;
-  border-radius: 6px;
+  top: -12px;
+  left: -12px;
+  padding: 2px 8px;
+  border-radius: 8px;
   background: var(--yellow);
   color: var(--ink-strong);
   border: 2px solid var(--border);
@@ -1572,7 +1572,7 @@ img { max-width: 100%; }
   font-weight: 900;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  z-index: 2;
+  z-index: 3;
 }
 
 .card.is-mine {
