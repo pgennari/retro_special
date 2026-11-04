@@ -1499,10 +1499,11 @@ img { max-width: 100%; }
   flex-direction: column;
   gap: 15px;
   min-height: 90px;
-  padding: 0 0 12px;
+  padding: 0 10px 12px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: visible;
 }
 
 .card {
