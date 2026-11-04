@@ -1316,9 +1316,13 @@ img { max-width: 100%; }
 
 .board-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 26px;
   align-items: start;
+}
+
+.panel-dynamics {
+  grid-column: 1 / -1;
 }
 
 .panel {
@@ -2979,6 +2983,8 @@ img { max-width: 100%; }
   .room-tabs { justify-content: center; }
   .reveal-layout { grid-template-columns: 1fr; }
   .scoreboard { position: static; }
+  .board-grid { grid-template-columns: 1fr; gap: 18px; }
+  .panel-dynamics { grid-column: auto; }
 }
 
 @media (max-width: 760px) {

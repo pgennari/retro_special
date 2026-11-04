@@ -346,10 +346,14 @@
       button.setAttribute('aria-selected', isActive ? 'true' : 'false');
       button.tabIndex = isActive ? 0 : -1;
     });
-    ['acertos', 'melhorias', 'dynamics'].forEach(function (tab) {
+    // Acertos e Melhorias ficam sempre visíveis, lado a lado.
+    ['acertos', 'melhorias'].forEach(function (tab) {
       var panel = document.getElementById('panel-' + tab);
-      if (panel) panel.hidden = tab !== activeTab;
+      if (panel) panel.hidden = false;
     });
+    // A Dinâmica só aparece quando sua tab está ativa, ocupando a largura total.
+    var dynamicsPanel = document.getElementById('panel-dynamics');
+    if (dynamicsPanel) dynamicsPanel.hidden = activeTab !== 'dynamics';
   }
 
   function handleTabClick(event) {
