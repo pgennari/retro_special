@@ -346,10 +346,11 @@
       button.setAttribute('aria-selected', isActive ? 'true' : 'false');
       button.tabIndex = isActive ? 0 : -1;
     });
-    // Acertos e Melhorias ficam sempre visíveis, lado a lado.
+    // Acertos e Melhorias ficam visíveis apenas quando não está na Dinâmica.
+    var showBoards = activeTab !== 'dynamics';
     ['acertos', 'melhorias'].forEach(function (tab) {
       var panel = document.getElementById('panel-' + tab);
-      if (panel) panel.hidden = false;
+      if (panel) panel.hidden = !showBoards;
     });
     // A Dinâmica só aparece quando sua tab está ativa, ocupando a largura total.
     var dynamicsPanel = document.getElementById('panel-dynamics');
