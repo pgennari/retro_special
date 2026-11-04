@@ -573,6 +573,11 @@
     var tabCount = $('[data-tab-count="' + key + '"]', refs.tabs);
     if (tabCount) tabCount.textContent = String(column.cards.length);
 
+    var cards = column.cards.slice();
+    if (key === 'acertos') {
+      cards.sort(function (a, b) { return (b.likeCount || 0) - (a.likeCount || 0); });
+    }
+
     if (column.revealed) {
       panel.action.innerHTML = '<span class="state-pill revealed">✓ revelado</span>';
     } else if (current.isOrganizer) {
@@ -583,14 +588,14 @@
       panel.action.innerHTML = '<span class="state-pill">🔒 oculto</span>';
     }
 
-    if (!column.cards.length) {
+    if (!cards.length) {
       panel.cards.innerHTML = '<div class="cards-empty"><span>✨</span>' +
         (key === 'acertos' ? 'Nenhum acerto ainda.<br>Comece pelo primeiro.' : 'Nenhuma melhoria ainda.<br>O que pode ficar melhor?') +
         '</div>';
       return;
     }
 
-    panel.cards.innerHTML = column.cards.map(function (card) {
+    panel.cards.innerHTML = cards.map(function (card) {
       return cardHTML(key, card, column);
     }).join('');
   }
@@ -600,9 +605,14 @@
     var heatClass = heat === 0 ? '' : (heat <= 2 ? ' heat-1' : heat <= 4 ? ' heat-2' : heat <= 6 ? ' heat-3' : ' heat-4');
     var isLocked = !card.canRead;
     var plan = card.actionPlan || { text: '', assignees: [] };
+    var isMine = card.authorId === currentUserId;
 
     var removeHTML = card.canRemove
       ? '<button class="card-remove icon-btn danger" type="button" data-remove-card="' + esc(card.id) + '" title="Remover card" aria-label="Remover card">✕</button>'
+      : '';
+
+    var mineBadge = isMine
+      ? '<span class="card-mine-badge" title="Sua autoria">você</span>'
       : '';
 
     var likeHTML = '';
@@ -638,8 +648,9 @@
       }
     }
 
-    return '<article class="card' + (isLocked ? ' is-locked' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
+    return '<article class="card' + (isLocked ? ' is-locked' : '') + (isMine ? ' is-mine' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
       removeHTML +
+      mineBadge +
       '<p class="card-text">' + esc(card.text) + '</p>' +
       (isLocked ? '<div class="card-lock">🔒 <b>conteúdo oculto</b> · o organizador revela para todos</div>' : '') +
       planHTML +

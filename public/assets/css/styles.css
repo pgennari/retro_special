@@ -1558,6 +1558,28 @@ img { max-width: 100%; }
   z-index: 2;
 }
 
+.card-mine-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--yellow);
+  color: var(--ink-strong);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0 var(--border);
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  z-index: 2;
+}
+
+.card.is-mine {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
 .card .card-remove:hover {
   color: #fffdf7;
   background: var(--danger);
