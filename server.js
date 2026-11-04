@@ -12,6 +12,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const Engine = require('./public/assets/js/engine.js');
 const store = require('./lib/store.js');
 
@@ -21,6 +22,7 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const MAX_BODY = 4 * 1024 * 1024;
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
+const ADMIN_KEY = String(process.env.ADMIN_KEY || '').trim();
 
 const rooms = new Map(); // code -> room
 const streams = new Map(); // code -> Map<userId, Set<res>>
@@ -91,7 +93,7 @@ function applyCors(req, res) {
   if (allowed) res.setHeader('Access-Control-Allow-Origin', allowed);
   if (allowed !== '*') res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 function readJson(req) {
@@ -118,6 +120,35 @@ function readJson(req) {
     });
     req.on('error', reject);
   });
+}
+
+/* ------------------------------------------------------------------ *
+ * autenticação da administração
+ * ------------------------------------------------------------------ */
+
+function safeEqual(left, right) {
+  const a = Buffer.from(String(left == null ? '' : left), 'utf8');
+  const b = Buffer.from(String(right == null ? '' : right), 'utf8');
+  if (!a.length || a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+function adminToken(req) {
+  const header = String(req.headers.authorization || '');
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
+}
+
+function requireAdmin(req, res) {
+  if (!ADMIN_KEY) {
+    sendError(res, 503, 'A administração não está configurada. Defina ADMIN_KEY no servidor.');
+    return false;
+  }
+  if (!safeEqual(adminToken(req), ADMIN_KEY)) {
+    sendError(res, 401, 'Chave de administrador inválida.');
+    return false;
+  }
+  return true;
 }
 
 function serveFile(res, filePath, cacheControl) {
@@ -267,7 +298,7 @@ function broadcast(code, event) {
     const member = Engine.findUser(room, userId);
     if (!member) {
       set.forEach((res) => {
-        writeSse(res, { type: 'kicked' });
+        writeSse(res, { type: 'kicked', message: 'Você não está mais nesta sala.' });
         try { res.end(); } catch (error) { /* noop */ }
       });
       set.clear();
@@ -293,6 +324,77 @@ function cleanupUserStreams(code, userId) {
       broadcast(code, { kind: 'presence', userId, connected: false });
     }
   }
+}
+
+function closeRoomStreams(code, message) {
+  const byUser = streams.get(code);
+  if (byUser) {
+    byUser.forEach((set) => {
+      set.forEach((res) => {
+        writeSse(res, { type: 'kicked', message: message || 'Esta sala não existe mais.' });
+        try { res.end(); } catch (error) { /* noop */ }
+      });
+      set.clear();
+    });
+  }
+  streams.delete(code);
+}
+
+/* ------------------------------------------------------------------ *
+ * administração — resumos das salas
+ * ------------------------------------------------------------------ */
+
+function roomSummary(room) {
+  if (!room) return null;
+  const organizer = Engine.findUser(room, room.organizerId);
+  const acertos = room.columns && room.columns.acertos ? room.columns.acertos.cards : [];
+  const melhorias = room.columns && room.columns.melhorias ? room.columns.melhorias.cards : [];
+  return {
+    code: room.code,
+    createdAt: room.createdAt || 0,
+    updatedAt: room.updatedAt || 0,
+    userCount: room.users.length,
+    onlineCount: room.users.filter((user) => user.connected).length,
+    organizerName: organizer ? organizer.name : '',
+    organizerId: room.organizerId || '',
+    acertos: Array.isArray(acertos) ? acertos.length : 0,
+    melhorias: Array.isArray(melhorias) ? melhorias.length : 0,
+    phase: room.dynamics ? room.dynamics.phase : 'setup'
+  };
+}
+
+/**
+ * Junta o cache em memória com o que está salvo no Firestore. Em memória
+ * sempre vence, porque é o estado mais recente.
+ */
+async function listAllRooms() {
+  const cutoff = Date.now() - ROOM_TTL_MS;
+  const byCode = new Map();
+  let warning = null;
+
+  try {
+    const stored = await store.listRooms();
+    stored.forEach((room) => {
+      if (!room || !room.code || !isRoomShapeValid(room)) return;
+      if (room.updatedAt && room.updatedAt < cutoff) return;
+      // uma sala só no banco não tem SSE aberto: ninguém está online de fato
+      const users = (room.users || []).map((user) => Object.assign({}, user, { connected: false }));
+      byCode.set(room.code, Object.assign({}, room, { users }));
+    });
+  } catch (error) {
+    warning = 'Não consegui listar as salas do Firestore: ' + (error && error.message ? error.message : 'erro desconhecido');
+    console.error('[admin]', warning);
+  }
+
+  rooms.forEach((room, code) => byCode.set(code, room));
+
+  return {
+    rooms: Array.from(byCode.values())
+      .map(roomSummary)
+      .filter(Boolean)
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
+    warning
+  };
 }
 
 function openStream(req, res, room, userId) {
@@ -344,6 +446,99 @@ setInterval(() => {
  * ações
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * administração — rotas
+ * ------------------------------------------------------------------ */
+
+function adminState(room) {
+  return Engine.getAdminState(room);
+}
+
+async function handleAdmin(req, res, url, segments) {
+  if (!requireAdmin(req, res)) return;
+
+  // POST /api/admin/session — valida a chave sem expor nenhum dado.
+  if (req.method === 'POST' && url.pathname === '/api/admin/session') {
+    return sendJson(res, 200, { ok: true });
+  }
+
+  // GET /api/admin/rooms
+  if (req.method === 'GET' && segments.length === 3 && segments[2] === 'rooms') {
+    const data = await listAllRooms();
+    return sendJson(res, 200, { ok: true, rooms: data.rooms, warning: data.warning });
+  }
+
+  const code = Engine.normalizeCode(segments[3]);
+  if (!code || segments.length < 4 || segments[2] !== 'rooms') {
+    return sendError(res, 404, 'Rota de administração não encontrada.');
+  }
+
+  // GET /api/admin/rooms/:code
+  if (req.method === 'GET' && segments.length === 4) {
+    const room = await getRoom(code);
+    if (!room) return sendError(res, 404, 'Sala não encontrada.');
+    return sendJson(res, 200, { ok: true, room: adminState(room) });
+  }
+
+  // POST /api/admin/rooms/:code/users/:userId/remove
+  if (req.method === 'POST' && segments.length === 7 && segments[4] === 'users' && segments[6] === 'remove') {
+    const room = await getRoom(code);
+    if (!room) return sendError(res, 404, 'Sala não encontrada.');
+    const userId = segments[5];
+    const result = Engine.adminRemoveUser(room, userId);
+    if (!result.ok) return sendError(res, 400, result.error);
+    store.saveRoom(room);
+    if (result.event) broadcast(code, result.event);
+    return sendJson(res, 200, { ok: true, room: adminState(room) });
+  }
+
+  // POST /api/admin/rooms/:code/cards
+  if (req.method === 'POST' && segments.length === 5 && segments[4] === 'cards') {
+    const body = await readJson(req);
+    const room = await getRoom(code);
+    if (!room) return sendError(res, 404, 'Sala não encontrada.');
+    const result = Engine.adminAddCard(room, String(body.column || ''), body);
+    if (!result.ok) return sendError(res, 400, result.error);
+    store.saveRoom(room);
+    if (result.event) broadcast(code, result.event);
+    return sendJson(res, 200, { ok: true, room: adminState(room) });
+  }
+
+  // POST /api/admin/rooms/:code/cards/:cardId/edit|delete
+  if (req.method === 'POST' && segments.length === 7 && segments[4] === 'cards') {
+    const cardId = segments[5];
+    const action = segments[6];
+    const body = await readJson(req);
+    const room = await getRoom(code);
+    if (!room) return sendError(res, 404, 'Sala não encontrada.');
+    const result = action === 'edit'
+      ? Engine.adminEditCard(room, String(body.column || ''), cardId, body.text)
+      : (action === 'delete' ? Engine.adminDeleteCard(room, String(body.column || ''), cardId) : null);
+    if (!result) return sendError(res, 404, 'Rota de administração não encontrada.');
+    if (!result.ok) return sendError(res, 400, result.error);
+    store.saveRoom(room);
+    if (result.event) broadcast(code, result.event);
+    return sendJson(res, 200, { ok: true, room: adminState(room) });
+  }
+
+  // POST /api/admin/rooms/:code/delete
+  if (req.method === 'POST' && segments.length === 5 && segments[4] === 'delete') {
+    const room = await getRoom(code);
+    if (!room) return sendError(res, 404, 'Sala não encontrada.');
+    try {
+      await store.deleteRoom(code);
+    } catch (error) {
+      throw storeError(error);
+    }
+    rooms.delete(code);
+    loading.delete(code);
+    closeRoomStreams(code, 'Esta sala foi encerrada pelo administrador.');
+    return sendJson(res, 200, { ok: true, deleted: true });
+  }
+
+  return sendError(res, 404, 'Rota de administração não encontrada.');
+}
+
 async function handleApi(req, res, url) {
   const segments = url.pathname.split('/').filter(Boolean);
 
@@ -357,6 +552,10 @@ async function handleApi(req, res, url) {
       pendingWrites: persistence.pending,
       storeError: persistence.lastError || null
     });
+  }
+
+  if (segments[1] === 'admin') {
+    return handleAdmin(req, res, url, segments);
   }
 
   // POST /api/rooms

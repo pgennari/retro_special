@@ -128,7 +128,7 @@
       } else if (payload.type === 'kicked') {
         closed = true;
         source.close();
-        if (handlers.onKicked) handlers.onKicked();
+        if (handlers.onKicked) handlers.onKicked(payload.message || 'Você não está mais nesta sala.');
       }
     };
 

@@ -39,6 +39,13 @@ Não existe etapa de instalação: o projeto usa apenas recursos nativos do Node
 - Depois da revelação, os cards ganham **joinhas** (👍) com animação e esquentam conforme recebem votos.
 - Em Melhorias, o organizador define um **plano de ação** por card e escolhe os responsáveis.
 
+### Administração
+- Área separada em **/admin** (ou `#/admin`), protegida por `ADMIN_KEY` no servidor.
+- Lista todas as salas com busca por código ou organizador, pessoas online e contagem de cards.
+- Permite remover qualquer pessoa (inclusive o organizador, que passa o papel para a próxima pessoa), adicionar, editar e apagar cards de Acertos ou Melhorias e encerrar a sala.
+- As ações de card ignoram as regras de fase/revelação do organizador; a autoria continua oculta para os participantes.
+- A chave fica apenas no `sessionStorage` da janela e é enviada no cabeçalho `Authorization`. Sem `ADMIN_KEY`, as rotas de administração respondem `503`.
+
 ### Dinâmica
 1. O organizador escreve a pergunta e pode ocultá-la/exibi-la quando quiser.
 2. Libera as respostas; cada participante envia a sua (pode atualizar enquanto a rodada estiver aberta).
@@ -67,7 +74,7 @@ O modo demo é ótimo para experimentar, mas não persiste entre navegadores nem
 npm test
 ```
 
-Roda os 11 casos do motor (`public/assets/js/engine.js`), os 8 casos de identidade por janela e os 11 casos de persistência (codec, fila de gravação e integração REST). A suíte do motor também pode ser aberta em `tests/engine.test.html`.
+Roda os 14 casos do motor (`public/assets/js/engine.js`), os 8 casos de identidade por janela, os 8 casos de persistência (codec, fila de gravação e integração REST), os 3 casos do cliente Firestore e o teste de integração das rotas de administração. A suíte do motor também pode ser aberta em `tests/engine.test.html`.
 
 ## Publicação (plano Spark)
 
@@ -93,9 +100,10 @@ Sem `FIREBASE_SERVICE_ACCOUNT`, o servidor roda em memória — útil só para d
 ### 2. Backend no Render
 
 1. Crie um **Blueprint** no Render apontando para este repositório; o `render.yaml` configura o serviço `retro-special-api`.
-2. Preencha o secret `FIREBASE_SERVICE_ACCOUNT` no painel e confira as origens em `ALLOWED_ORIGINS`.
+2. Preencha os secrets `FIREBASE_SERVICE_ACCOUNT` e `ADMIN_KEY` no painel e confira as origens em `ALLOWED_ORIGINS`.
 3. A URL esperada é `https://retro-special-api.onrender.com`. Se o Render escolher outro nome, atualize `public/assets/js/config.js`.
 4. Confirme em `https://retro-special-api.onrender.com/api/health` que aparece `"persistence": "firestore"`.
+5. Abra `https://retro-special.web.app/admin` e entre com a `ADMIN_KEY` para validar o painel.
 
 O plano free do Render dorme após alguns minutos sem tráfego; a primeira visita depois disso pode demorar. As salas continuam no Firestore. O backend deve continuar em **uma única instância** porque as conexões SSE e o cache de salas vivem no processo.
 
@@ -127,8 +135,9 @@ public/assets/js/
   api.js                  REST + SSE (produção) e adaptador demo
   home.js                 identificação, criar/entrar
   room.js                 sala, cards, dinâmica, arrastar e placar
+  admin.js                painel /admin: salas, pessoas e cards
   app.js                  rotas em hash e bootstrap
-tests/                    motor, identidade e persistência (Node e navegador)
+tests/                    motor, identidade, persistência e administração (Node e navegador)
 render.yaml               backend free no Render
 firebase.json             deploy do Firebase Hosting
 firestore.rules           bloqueia acesso direto do navegador

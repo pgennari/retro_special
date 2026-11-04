@@ -282,6 +282,54 @@
       });
     });
 
+    test('administração remove o organizador e transfere a organização', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+      assert.equal(room.organizerId, 'user_ana');
+
+      var result = engine.adminRemoveUser(room, 'user_ana');
+      assert.ok(result.ok);
+      assert.equal(room.users.length, 1);
+      assert.equal(room.organizerId, 'user_bia');
+      assert.equal(engine.findUser(room, 'user_ana'), null);
+      assert.equal(engine.getAdminState(room).users[0].name, 'Bia');
+    });
+
+    test('administração adiciona e edita cards sem revelar o bloco', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+
+      var add = engine.adminAddCard(room, 'acertos', { text: 'Card da administração', authorId: 'user_bia' });
+      assert.ok(add.ok);
+
+      var adminView = engine.getAdminState(room);
+      assert.equal(adminView.acertos.count, 1);
+      assert.equal(adminView.acertos.cards[0].text, 'Card da administração');
+      assert.equal(adminView.acertos.cards[0].authorName, 'Bia');
+      assert.equal(adminView.acertos.revealed, false);
+
+      var otherView = engine.getState(room, 'user_ana');
+      assert.equal(otherView.acertos.cards[0].canRead, false);
+      assert.equal(otherView.acertos.cards[0].authorId, undefined);
+
+      var edited = engine.adminEditCard(room, 'acertos', add.cardId, 'Card revisado pela administração');
+      assert.ok(edited.ok);
+      assert.equal(engine.getAdminState(room).acertos.cards[0].text, 'Card revisado pela administração');
+
+      var removed = engine.adminDeleteCard(room, 'acertos', add.cardId);
+      assert.ok(removed.ok);
+      assert.equal(engine.getAdminState(room).acertos.count, 0);
+    });
+
+    test('card criado pela administração pode ficar anônimo', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      var add = engine.adminAddCard(room, 'melhorias', { text: 'Sem autor' });
+      assert.ok(add.ok);
+      var card = engine.getAdminState(room).melhorias.cards[0];
+      assert.equal(card.authorId, '');
+      assert.equal(card.authorName, '');
+    });
+
     return results;
   }
 

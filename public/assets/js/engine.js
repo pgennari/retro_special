@@ -275,6 +275,51 @@
     return room.columns[key];
   }
 
+  /**
+   * Remove tudo que pertence a uma pessoa. O organizador usa isso em
+   * room:kick; a administração usa direto, sem as restrições de fase.
+   */
+  function detachUser(room, userId) {
+    room.users = room.users.filter(function (item) { return item.id !== userId; });
+    Object.keys(room.columns).forEach(function (key) {
+      room.columns[key].cards = room.columns[key].cards
+        .filter(function (item) { return item.authorId !== userId; })
+        .map(function (item) {
+          // joinhas e planos de ação da pessoa removida não devem sobrar
+          item.likes = (item.likes || []).filter(function (id) { return id !== userId; });
+          if (item.actionPlan) {
+            item.actionPlan.assignees = (item.actionPlan.assignees || []).filter(function (id) { return id !== userId; });
+          }
+          return item;
+        });
+    });
+    var d = room.dynamics;
+    d.participantIds = d.participantIds.filter(function (id) { return id !== userId; });
+    d.answers = d.answers.filter(function (answer) { return answer.userId !== userId; });
+    d.order = d.order.filter(function (answerId) {
+      return d.answers.some(function (answer) { return answer.id === answerId; });
+    });
+    d.revealed = d.revealed.filter(function (answerId) {
+      return d.order.indexOf(answerId) !== -1;
+    });
+    d.assignments = d.assignments || {};
+    delete d.assignments[userId];
+    Object.keys(d.assignments).forEach(function (voter) {
+      Object.keys(d.assignments[voter]).forEach(function (answerId) {
+        if (d.assignments[voter][answerId] === userId) delete d.assignments[voter][answerId];
+      });
+    });
+  }
+
+  function nextOrganizer(room) {
+    if (!room.users.length) return '';
+    var ordered = room.users.slice().sort(function (a, b) {
+      if (a.connected !== b.connected) return a.connected ? -1 : 1;
+      return (a.joinedAt || 0) - (b.joinedAt || 0);
+    });
+    return ordered[0].id;
+  }
+
   function applyAction(room, userId, type, payload) {
     if (!room) return { ok: false, error: 'Sala não encontrada.' };
     payload = payload || {};
@@ -573,34 +618,7 @@
         if (d.phase === 'voting' || d.phase === 'closed') {
           return { ok: false, error: 'Não é possível remover pessoas durante a votação ou revelação.' };
         }
-        room.users = room.users.filter(function (item) { return item.id !== kickId; });
-        Object.keys(room.columns).forEach(function (key) {
-          room.columns[key].cards = room.columns[key].cards
-            .filter(function (item) { return item.authorId !== kickId; })
-            .map(function (item) {
-              // joinhas e planos de ação da pessoa removida não devem sobrar
-              item.likes = (item.likes || []).filter(function (id) { return id !== kickId; });
-              if (item.actionPlan) {
-                item.actionPlan.assignees = (item.actionPlan.assignees || []).filter(function (id) { return id !== kickId; });
-              }
-              return item;
-            });
-        });
-        d.participantIds = d.participantIds.filter(function (id) { return id !== kickId; });
-        d.answers = d.answers.filter(function (answer) { return answer.userId !== kickId; });
-        d.order = d.order.filter(function (answerId) {
-          return d.answers.some(function (answer) { return answer.id === answerId; });
-        });
-        d.revealed = d.revealed.filter(function (answerId) {
-          return d.order.indexOf(answerId) !== -1;
-        });
-        d.assignments = d.assignments || {};
-        delete d.assignments[kickId];
-        Object.keys(d.assignments).forEach(function (voter) {
-          Object.keys(d.assignments[voter]).forEach(function (answerId) {
-            if (d.assignments[voter][answerId] === kickId) delete d.assignments[voter][answerId];
-          });
-        });
+        detachUser(room, kickId);
         touch(room);
         return { ok: true, event: { kind: 'member-kicked', userId: kickId } };
       }
@@ -617,6 +635,126 @@
       default:
         return { ok: false, error: 'Ação desconhecida.' };
     }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * administração (acionada pelo servidor com ADMIN_KEY)
+   * ------------------------------------------------------------------ */
+
+  function adminRemoveUser(room, userId) {
+    if (!room) return { ok: false, error: 'Sala não encontrada.' };
+    if (!findUser(room, userId)) return { ok: false, error: 'Pessoa não encontrada.' };
+    detachUser(room, userId);
+    if (room.organizerId === userId) room.organizerId = nextOrganizer(room);
+    touch(room);
+    return {
+      ok: true,
+      organizerId: room.organizerId,
+      event: { kind: 'member-kicked', userId: userId }
+    };
+  }
+
+  function adminAddCard(room, columnKey, payload) {
+    if (!room) return { ok: false, error: 'Sala não encontrada.' };
+    payload = payload || {};
+    var column = getColumn(room, columnKey);
+    if (!column) return { ok: false, error: 'Bloco inválido.' };
+    var text = cleanBlock(payload.text, 600);
+    if (!text) return { ok: false, error: 'Escreva o texto do card.' };
+    if (column.cards.length >= MAX_CARDS) {
+      return { ok: false, error: 'Este bloco atingiu o limite de cards.' };
+    }
+    var authorId = validId(payload.authorId) && findUser(room, payload.authorId) ? payload.authorId : '';
+    var card = {
+      id: uid('card'),
+      authorId: authorId,
+      text: text,
+      createdAt: Date.now(),
+      likes: [],
+      actionPlan: { text: '', assignees: [], updatedAt: 0 }
+    };
+    column.cards.push(card);
+    touch(room);
+    return {
+      ok: true,
+      cardId: card.id,
+      event: { kind: 'card-added', column: columnKey, cardId: card.id }
+    };
+  }
+
+  function adminEditCard(room, columnKey, cardId, text) {
+    if (!room) return { ok: false, error: 'Sala não encontrada.' };
+    var column = getColumn(room, columnKey);
+    if (!column) return { ok: false, error: 'Bloco inválido.' };
+    var card = findCard(column, cardId);
+    if (!card) return { ok: false, error: 'Card não encontrado.' };
+    var next = cleanBlock(text, 600);
+    if (!next) return { ok: false, error: 'O card não pode ficar vazio.' };
+    card.text = next;
+    touch(room);
+    return { ok: true, event: { kind: 'card-edited', column: columnKey, cardId: card.id } };
+  }
+
+  function adminDeleteCard(room, columnKey, cardId) {
+    if (!room) return { ok: false, error: 'Sala não encontrada.' };
+    var column = getColumn(room, columnKey);
+    if (!column) return { ok: false, error: 'Bloco inválido.' };
+    var card = findCard(column, cardId);
+    if (!card) return { ok: false, error: 'Card não encontrado.' };
+    column.cards = column.cards.filter(function (item) { return item.id !== card.id; });
+    touch(room);
+    return { ok: true, event: { kind: 'card-removed', column: columnKey, cardId: card.id } };
+  }
+
+  function adminColumnState(room, key) {
+    var column = room.columns[key];
+    return {
+      key: key,
+      revealed: column.revealed,
+      count: column.cards.length,
+      cards: column.cards.map(function (card) {
+        var author = card.authorId ? findUser(room, card.authorId) : null;
+        var plan = card.actionPlan || { text: '', assignees: [], updatedAt: 0 };
+        return {
+          id: card.id,
+          text: card.text,
+          authorId: card.authorId || '',
+          authorName: author ? author.name : '',
+          createdAt: card.createdAt,
+          likeCount: (card.likes || []).length,
+          actionPlan: {
+            text: plan.text || '',
+            assignees: (plan.assignees || []).filter(function (id) { return !!findUser(room, id); }),
+            updatedAt: plan.updatedAt || 0
+          }
+        };
+      })
+    };
+  }
+
+  function getAdminState(room) {
+    if (!room) return null;
+    var d = room.dynamics;
+    return {
+      code: room.code,
+      version: room.version,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
+      organizerId: room.organizerId,
+      users: room.users.map(function (user) { return publicUser(room, user); }),
+      acertos: adminColumnState(room, 'acertos'),
+      melhorias: adminColumnState(room, 'melhorias'),
+      dynamics: {
+        phase: d.phase,
+        round: d.round,
+        question: d.question,
+        questionVisible: d.questionVisible,
+        participantCount: d.participantIds.length,
+        answerCount: d.answers.length,
+        revealedCount: d.revealed.length,
+        totalAnswers: d.order.length
+      }
+    };
   }
 
   /* ------------------------------------------------------------------ *
@@ -903,6 +1041,11 @@
     setConnected: setConnected,
     roomIsAlive: roomIsAlive,
     findUser: findUser,
+    getAdminState: getAdminState,
+    adminRemoveUser: adminRemoveUser,
+    adminAddCard: adminAddCard,
+    adminEditCard: adminEditCard,
+    adminDeleteCard: adminDeleteCard,
     randomCode: randomCode,
     normalizeCode: normalizeCode,
     connectedParticipants: connectedParticipants,
@@ -912,7 +1055,8 @@
       MAX_CARDS: MAX_CARDS,
       USER_COLORS: USER_COLORS,
       AVATAR_BACKGROUNDS: AVATAR_BACKGROUNDS,
-      DEFAULT_EMOJIS: DEFAULT_EMOJIS
+      DEFAULT_EMOJIS: DEFAULT_EMOJIS,
+      detachUser: detachUser
     }
   };
 });

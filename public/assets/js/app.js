@@ -25,8 +25,15 @@
 
   var homeView = null;
   var roomView = null;
+  var adminView = null;
   var pendingState = null;
   var initialized = false;
+
+  function isAdminRoute() {
+    var hash = String(window.location.hash || '').replace(/^#\/?/, '').replace(/\/+$/, '');
+    if (/^admin$/i.test(hash)) return true;
+    return /^\/admin\/?$/i.test(window.location.pathname);
+  }
 
   function parseRoute() {
     var hash = window.location.hash || '';
@@ -44,6 +51,7 @@
   function setView(name) {
     homeView.hidden = name !== 'home';
     roomView.hidden = name !== 'room';
+    if (adminView) adminView.hidden = name !== 'admin';
     document.body.setAttribute('data-view', name);
   }
 
@@ -53,6 +61,18 @@
 
   function route() {
     if (!initialized) return;
+    if (isAdminRoute()) {
+      Retro.room.close();
+      if (/^\/admin\/?$/i.test(window.location.pathname)) {
+        try { history.replaceState(null, '', '/#/admin'); } catch (error) { /* noop */ }
+      }
+      setView('admin');
+      document.title = 'Administração — Retro Special';
+      if (Retro.admin) Retro.admin.open();
+      return;
+    }
+    if (Retro.admin) Retro.admin.close();
+
     var code = parseRoute();
     if (code) {
       var current = identity.load();
@@ -88,6 +108,7 @@
   function goRoom(code, initialState) {
     code = ui.normalizeCode(code);
     if (!code) return;
+    if (Retro.admin) Retro.admin.close();
     pendingState = initialState ? { code: code, state: initialState } : null;
     var target = '#/sala/' + code;
     if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(window.location.pathname)) {
@@ -109,15 +130,16 @@
 
   function goHome(options) {
     Retro.room.close();
+    if (Retro.admin) Retro.admin.close();
     setView('home');
     var entryPath = /^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(window.location.pathname);
-    if (window.location.hash || entryPath || params.get('sala') || params.get('room')) {
+    if (window.location.hash || entryPath || /^\/admin\/?$/i.test(window.location.pathname) || params.get('sala') || params.get('room')) {
       try {
         var url = new URL(window.location.href);
         url.hash = '';
         url.searchParams.delete('sala');
         url.searchParams.delete('room');
-        if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(url.pathname)) url.pathname = '/';
+        if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(url.pathname) || /^\/admin\/?$/i.test(url.pathname)) url.pathname = '/';
         history.replaceState(null, '', url.pathname + url.search);
       } catch (error) {
         history.replaceState(null, '', window.location.pathname);
@@ -161,9 +183,11 @@
     initialized = true;
     homeView = document.getElementById('home-view');
     roomView = document.getElementById('room-view');
+    adminView = document.getElementById('admin-view');
     ui.initModal();
     identity.load();
     Retro.home.init();
+    if (Retro.admin) Retro.admin.init();
     bind();
     route();
   }

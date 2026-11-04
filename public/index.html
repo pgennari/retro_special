@@ -296,6 +296,77 @@
         </footer>
       </main>
     </section>
+
+    <!-- ─────────────────────────--- ADMIN ─────────────────────────--- -->
+    <section id="admin-view" class="view admin-view" role="main" hidden>
+      <div class="admin-shell">
+        <header class="admin-nav">
+          <a class="brand brand-small" href="#" data-home-link>
+            <span class="brand-mark" aria-hidden="true">✦</span>
+            <span class="brand-name">Retro Special<span class="bang">!</span></span>
+            <span class="sr-only">— voltar ao início</span>
+          </a>
+          <div class="nav-right">
+            <span class="admin-chip">administração</span>
+            <button class="btn btn-ghost btn-small" id="admin-logout" type="button" hidden>Sair</button>
+          </div>
+        </header>
+
+        <div class="admin-login" id="admin-login">
+          <div class="admin-login-card">
+            <span class="eyebrow"><span class="eyebrow-dot"></span> acesso restrito</span>
+            <h1 class="admin-login-title">Mesa de controle</h1>
+            <p class="admin-login-sub">Entre com a chave de administrador para gerenciar as salas, as pessoas e os cards.</p>
+            <form id="admin-login-form" class="admin-login-form" novalidate>
+              <label class="field">
+                <span class="field-label">Chave de administrador</span>
+                <input id="admin-key-input" class="text-input" type="password" autocomplete="current-password" placeholder="Cole a ADMIN_KEY aqui" spellcheck="false">
+              </label>
+              <p class="form-error" id="admin-login-error" role="alert" hidden></p>
+              <button class="btn btn-primary btn-block" id="admin-login-submit" type="submit">Entrar</button>
+            </form>
+            <p class="micro admin-login-note">A chave fica só nesta janela e nunca é gravada no site.</p>
+          </div>
+        </div>
+
+        <div class="admin-panel" id="admin-panel" hidden>
+          <div class="admin-head">
+            <div>
+              <span class="eyebrow"><span class="eyebrow-dot"></span> mesa de controle</span>
+              <h1>Salas</h1>
+              <p>Remova pessoas, ajuste cards e encerre salas sem depender do organizador.</p>
+            </div>
+            <div class="admin-tools">
+              <label class="admin-search">
+                <span class="sr-only">Buscar salas</span>
+                <input id="admin-search" type="search" placeholder="Buscar por código ou organizador" autocomplete="off" spellcheck="false">
+              </label>
+              <button class="btn btn-secondary btn-small" id="admin-refresh" type="button">Atualizar</button>
+            </div>
+          </div>
+
+          <div class="admin-layout">
+            <aside class="admin-rooms" aria-label="Salas cadastradas">
+              <div class="admin-list-head">
+                <span id="admin-count">0 salas</span>
+                <span id="admin-updated"></span>
+              </div>
+              <div class="admin-room-list" id="admin-room-list"></div>
+              <p class="admin-empty" id="admin-empty" hidden>Nenhuma sala por aqui. Crie uma na tela inicial.</p>
+            </aside>
+
+            <section class="admin-detail" id="admin-detail" aria-live="polite">
+              <div class="admin-placeholder" id="admin-placeholder">
+                <span class="admin-placeholder-mark" aria-hidden="true">✦</span>
+                <h2>Escolha uma sala</h2>
+                <p>Os detalhes, as pessoas e os cards aparecem aqui.</p>
+              </div>
+              <div id="admin-detail-body" hidden></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
@@ -326,6 +397,7 @@
   <script src="assets/js/api.js"></script>
   <script src="assets/js/home.js"></script>
   <script src="assets/js/room.js"></script>
+  <script src="assets/js/admin.js"></script>
   <script src="assets/js/app.js"></script>
 </body>
 </html>

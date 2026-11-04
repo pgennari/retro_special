@@ -21,5 +21,7 @@ services:
         value: retro-special-pgennari
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false
+      - key: ADMIN_KEY
+        sync: false
       - key: ALLOWED_ORIGINS
         value: https://retro-special.web.app,https://retro-special-pgennari.web.app,https://retro-special-pgennari.firebaseapp.com
