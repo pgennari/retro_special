@@ -1129,6 +1129,29 @@ img { max-width: 100%; }
 
 .header-user-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.presenting-toggle {
+  position: relative;
+  overflow: hidden;
+}
+
+.presenting-toggle.is-active {
+  background: var(--border);
+  color: var(--surface);
+}
+
+.presenting-toggle.is-active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px var(--border);
+}
+
 .avatar-more { display: inline-flex; align-items: center; justify-content: center; }
 
 .people-popover {
@@ -1685,6 +1708,16 @@ img { max-width: 100%; }
 
 .card.bump { animation: cardBump 0.5s cubic-bezier(0.2, 1.2, 0.3, 1); }
 
+.card.column-acertos { background: #eef7ec; }
+.card.column-melhorias { background: #fbeaea; }
+.card.column-dynamics { background: #eef2fb; }
+
+.card.column-acertos.is-locked,
+.card.column-melhorias.is-locked,
+.card.column-dynamics.is-locked { background: var(--surface-2); }
+
+.reveal-card { background: #eef2fb; }
+
 .float-like-particle {
   position: absolute;
   left: 50%;
@@ -2214,21 +2247,27 @@ img { max-width: 100%; }
 
 .vote-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 13px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
 }
 
 .vote-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 15px;
+  gap: 18px;
+  padding: 30px 18px;
   border: 2.5px solid var(--border);
   border-radius: 17px;
   background: var(--surface);
   box-shadow: 3px 3px 0 var(--border);
   transition: transform 0.14s, box-shadow 0.14s;
+  min-height: 260px;
+}
+
+.vote-card.is-own {
+  border-color: var(--teal);
+  background: var(--teal-soft);
 }
 
 .vote-card:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--border); }
@@ -2255,9 +2294,9 @@ img { max-width: 100%; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  min-height: 58px;
-  padding: 7px;
+  gap: 9.6px;
+  min-height: 160px;
+  padding: 16px;
   border: 2px dashed rgba(43, 30, 19, 0.4);
   border-radius: 12px;
   background: var(--paper-2);
@@ -2273,69 +2312,50 @@ img { max-width: 100%; }
 
 .dropzone.has-chips { border-style: solid; border-color: rgba(43, 30, 19, 0.3); background: var(--surface-2); }
 
+.dropzone.is-own { border-style: dashed; border-color: rgba(43, 30, 19, 0.2); background: var(--surface); pointer-events: none; }
+
 .drop-hint { padding: 2px 4px; color: var(--muted); font-size: 10px; font-weight: 600; line-height: 1.35; }
 
 .assignment {
   position: relative;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 2px solid transparent;
-  border-radius: 50%;
-  background: transparent;
-  transition: transform 0.14s, border-color 0.18s, opacity 0.18s;
-}
-
-.assignment .avatar { --size: 27px !important; }
-.assignment .voter-badge {
-  position: absolute;
-  right: -6px;
-  bottom: -6px;
-  width: 26px;
-  height: 26px;
-  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 9.6px;
+  padding: 8px 16px;
   border: 2px solid var(--border);
-  border-radius: 50%;
+  border-radius: 16px;
   background: var(--surface);
-  box-shadow: 2px 2px 0 var(--border);
-}
-
-.assignment .voter-badge .avatar { --size: 20px !important; }
-
-.assignment .voter-name {
-  position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-size: 10px;
-  font-weight: 800;
   color: var(--ink-strong);
-  background: var(--surface);
-  padding: 2px 7px;
-  border: 2px solid var(--border);
-  border-radius: 6px;
+  font-size: 17.6px;
+  font-weight: 800;
   box-shadow: 2px 2px 0 var(--border);
-  pointer-events: none;
-  z-index: 2;
+  transition: transform 0.14s, border-color 0.18s, opacity 0.18s, background 0.18s;
 }
-.assignment.mine { border-color: var(--teal); cursor: pointer; }
-.assignment.mine:hover { transform: scale(1.12); border-color: var(--danger); }
+
+.assignment .avatar { --size: 44.8px !important; }
+
+.assignment-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 208px;
+}
+
+.assignment.mine { border-color: var(--teal); cursor: pointer; background: var(--teal-soft); }
+.assignment.mine:hover { transform: scale(1.05); border-color: var(--danger); }
 .assignment.correct { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
 .assignment.wrong { opacity: 0.45; }
 .assignment:disabled { cursor: default; }
 .assignment .remove-x {
   position: absolute;
-  top: -5px;
-  left: -5px;
-  width: 14px;
-  height: 14px;
+  top: 4px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
   display: none;
   place-items: center;
-  border: 1.5px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: 50%;
   background: var(--danger);
   color: #fff;

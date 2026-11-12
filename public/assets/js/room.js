@@ -22,6 +22,7 @@
   var current = null;
   var currentCode = null;
   var currentUserId = null;
+  var presenting = false;
   var connection = null;
   var openToken = 0;
   var status = 'connecting';
@@ -116,6 +117,7 @@
     refs.headerUser = document.getElementById('header-user');
     refs.headerUserAvatar = document.getElementById('header-user-avatar');
     refs.headerUserName = document.getElementById('header-user-name');
+    refs.presentingToggle = document.getElementById('presenting-toggle');
     refs.leaveBtn = document.getElementById('leave-btn');
     refs.phase = document.getElementById('dynamics-phase');
     refs.extra = document.getElementById('dynamics-extra');
@@ -163,6 +165,7 @@
 
     refs.codeChip.addEventListener('click', copyRoomLink);
     refs.leaveBtn.addEventListener('click', leaveRoom);
+    if (refs.presentingToggle) refs.presentingToggle.addEventListener('click', togglePresenting);
     refs.peopleBtn.addEventListener('click', togglePeople);
     refs.peopleList.addEventListener('click', handlePeopleClick);
     refs.tabs.addEventListener('click', handleTabClick);
@@ -456,8 +459,8 @@
     refs.roomDemoChip.hidden = !Retro.env.demo;
     if (refs.orgBadge) refs.orgBadge.hidden = true;
     if (refs.headerUser) refs.headerUser.hidden = true;
+    presenting = false;
     activeTab = 'acertos';
-    updateTabUi();
     refs.avatarStack.innerHTML = '';
     refs.peopleCount.textContent = '0';
     refs.peopleList.innerHTML = '';
@@ -510,6 +513,11 @@
     refs.footerCode.textContent = current.code;
     refs.roomDemoChip.hidden = !Retro.env.demo;
     if (refs.orgBadge) refs.orgBadge.hidden = !current.isOrganizer;
+    if (refs.presentingToggle) {
+      refs.presentingToggle.hidden = !current.isOrganizer;
+      refs.presentingToggle.classList.toggle('is-active', presenting);
+      refs.presentingToggle.textContent = presenting ? 'Apresentando' : 'Apresentando';
+    }
     renderHeaderUser();
 
     var users = current.users.slice().sort(function (a, b) {
@@ -544,6 +552,12 @@
     }
     if (refs.headerUserName) refs.headerUserName.textContent = user.name || 'Participante';
     if (refs.headerUser) refs.headerUser.hidden = false;
+  }
+
+  function togglePresenting() {
+    presenting = !presenting;
+    if (refs.presentingToggle) refs.presentingToggle.classList.toggle('is-active', presenting);
+    renderAll();
   }
 
   function renderPeople() {
@@ -586,6 +600,9 @@
     var cards = column.cards.slice();
     if (key === 'acertos') {
       cards.sort(function (a, b) { return (b.likeCount || 0) - (a.likeCount || 0); });
+    }
+    if (presenting) {
+      cards = cards.filter(function (card) { return !card.isMine; });
     }
 
     if (column.revealed) {
@@ -658,7 +675,7 @@
       }
     }
 
-    return '<article class="card' + (isLocked ? ' is-locked' : '') + (isMine ? ' is-mine' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
+    return '<article class="card column-' + key + (isLocked ? ' is-locked' : '') + (isMine ? ' is-mine' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
       removeHTML +
       mineBadge +
       '<p class="card-text">' + esc(card.text) + '</p>' +
@@ -895,9 +912,8 @@
       return '<button class="assignment' + (editable ? ' mine' : '') + extra + '" type="button" ' +
         'data-voter="' + esc(row.voter.id) + '" data-target="' + esc(row.target.id) + '" data-answer="' + esc(answerId) + '" ' +
         'title="' + esc(title) + '" ' + (editable ? '' : 'disabled') + '>' +
-        ui.avatarHTML(row.target.avatar, { size: 25 }) +
-        '<span class="voter-badge">' + ui.avatarHTML(row.voter.avatar, { size: 20 }) + '</span>' +
-        '<span class="voter-name">' + esc(row.voter.name) + '</span>' +
+        ui.avatarHTML(row.target.avatar, { size: 28 }) +
+        '<span class="assignment-name">' + esc(row.target.name) + '</span>' +
         (editable ? '<span class="remove-x" aria-hidden="true">×</span>' : '') +
         '</button>';
     }).join('');
@@ -923,14 +939,16 @@
     }
 
     html += '<div class="vote-grid">' + (d.answers || []).map(function (answer, index) {
-      var chips = assignmentChipsHTML(answer.id, { canEdit: d.canVote });
-      var hint = chips ? '' : (d.canVote ? 'Arraste uma pessoa aqui' : 'Nenhum palpite ainda');
-      return '<article class="vote-card" data-answer-id="' + esc(answer.id) + '">' +
+      var isOwn = !!answer.mine;
+      var chips = assignmentChipsHTML(answer.id, { canEdit: d.canVote && !isOwn });
+      var hint = chips ? '' : (d.canVote && !isOwn ? 'Arraste uma pessoa aqui' : 'Sua resposta');
+      var dropzoneHTML = isOwn
+        ? '<div class="dropzone is-own has-chips">' + (chips || '<span class="drop-hint">Você não pode votar na sua resposta</span>') + '</div>'
+        : '<div class="dropzone' + (chips ? ' has-chips' : '') + '" data-dropzone="' + esc(answer.id) + '">' + (chips || '<span class="drop-hint">' + hint + '</span>') + '</div>';
+      return '<article class="vote-card' + (isOwn ? ' is-own' : '') + '" data-answer-id="' + esc(answer.id) + '">' +
         '<span class="vote-index">RESPOSTA ' + String(index + 1).padStart(2, '0') + '</span>' +
         '<p class="answer-text">' + esc(answer.text) + '</p>' +
-        '<div class="dropzone' + (chips ? ' has-chips' : '') + '" data-dropzone="' + esc(answer.id) + '">' +
-          (chips || '<span class="drop-hint">' + hint + '</span>') +
-        '</div>' +
+        dropzoneHTML +
         '</article>';
     }).join('') + '</div>';
 
@@ -975,21 +993,19 @@
   function revealHTML(d) {
     var html = '';
     if (d.phase === 'done') html += podiumHTML(d);
-    html += questionBlockHTML(d);
+    if (d.phase !== 'done') html += questionBlockHTML(d);
 
     var revealAction;
     if (current.isOrganizer && d.phase === 'closed') {
       revealAction = '<button class="btn btn-primary" type="button" data-action="reveal-next" ' + (d.canRevealNext ? '' : 'disabled') + '>Revelar próxima resposta →</button>';
-    } else if (current.isOrganizer && d.phase === 'done') {
-      revealAction = '<button class="btn btn-secondary" type="button" data-action="reset-dynamics">Nova rodada ↺</button>';
     } else if (d.phase === 'closed') {
       revealAction = '<span class="helper">Aguardando o organizador revelar os autores…</span>';
     }
 
     html += '<div class="reveal-head">' +
-      '<div><h3>' + (d.phase === 'done' ? 'Rodada revelada' : 'Hora da verdade') + '</h3>' +
+      '<div><h3>' + (d.phase === 'done' ? 'Placar final' : 'Hora da verdade') + '</h3>' +
       '<p>' + (d.phase === 'done'
-        ? 'Todos os autores estão na mesa. Confira o placar final.'
+        ? 'Todos os autores foram revelados. Este é o resultado da dinâmica.'
         : 'O organizador revela os autores um por um. Cada acerto vale 1 ponto.') + '</p></div>' +
       '<div class="reveal-actions">' +
         '<span class="reveal-counter">' + d.revealedCount + '/' + d.totalAnswers + ' reveladas</span>' +
@@ -1082,9 +1098,9 @@
     return '<div class="podium">' +
       '<span class="podium-trophy" aria-hidden="true">🏆</span>' +
       '<div class="podium-copy">' +
-        '<span class="podium-eyebrow">fim da rodada ' + d.round + '</span>' +
+        '<span class="podium-eyebrow">resultado da dinâmica</span>' +
         '<h3>' + esc(title) + '</h3>' +
-        '<p>Que tal mais uma? O organizador pode começar uma nova dinâmica.</p>' +
+        '<p>Obrigado por participar!</p>' +
       '</div>' +
       '</div>';
   }
