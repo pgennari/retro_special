@@ -766,15 +766,22 @@
     }
     var question = drafts.question || '';
     var disabled = !question.trim();
+    var suggestions = [
+      'Qual foi a coisa mais inusitada que aconteceu nesta sprint?',
+      'O que você mais aprendeu com um colega nesta sprint?',
+      'Qual momento foi mais divertido da equipe?',
+      'O que poderia ter sido feito de forma diferente?',
+      'Qual foi o maior desafio superado pela equipe?',
+      'Quem te surpreendeu positivamente nesta sprint?',
+      'O que você gostaria de ver mais vezes na próxima sprint?',
+      'Qual foi a maior conquista desta sprint?'
+    ];
+    var suggestionIndex = 0;
     return '<span class="dyn-panel-label">✏️ Painel do organizador</span>' +
       '<div class="dyn-setup">' +
       '<div class="dyn-copy">' +
-        '<h3>Faça a pergunta da rodada</h3>' +
-        '<p>Algo leve, específico e que renda boas histórias. Todos respondem escondido — depois o time tenta adivinhar quem escreveu o quê.</p>' +
-        '<div class="dyn-tips"><span class="dyn-tip">leve</span><span class="dyn-tip">específica</span><span class="dyn-tip">sem julgamentos</span></div>' +
-      '</div>' +
       '<div class="dyn-question-editor">' +
-        '<textarea id="question-input" maxlength="300" placeholder="Ex.: qual foi a coisa mais inusitada que aconteceu nesta sprint?">' + esc(question) + '</textarea>' +
+        '<textarea id="question-input" maxlength="300" placeholder="' + suggestions[0] + '">' + esc(question) + '</textarea>' +
         '<div class="dyn-editor-foot">' +
           '<span class="char-count" id="question-count">' + question.length + '/300</span>' +
           '<div class="dyn-actions">' +
@@ -783,8 +790,21 @@
           '</div>' +
         '</div>' +
       '</div>' +
+      '<script>' +
+      '(function() {' +
+      '  var input = document.getElementById("question-input");' +
+      '  if (!input) return;' +
+      '  var suggestions = ' + JSON.stringify(suggestions) + ';' +
+      '  var i = 0;' +
+      '  setInterval(function() {' +
+      '    i = (i + 1) % suggestions.length;' +
+      '    if (!input.value.trim()) input.placeholder = suggestions[i];' +
+      '  }, 4000);' +
+      '})();' +
+      '</script>' +
       '</div>' +
-      '<p class="micro">Você pode ocultar a pergunta quando quiser. As respostas ficam anônimas até o final.</p>';
+      '</div>' +
+      '</div>';
   }
 
   function questionBlockHTML(d) {
