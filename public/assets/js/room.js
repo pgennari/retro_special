@@ -775,14 +775,14 @@
     var question = drafts.question || '';
     var disabled = !question.trim();
     var suggestions = [
-      'Qual foi a coisa mais inusitada que aconteceu nesta sprint?',
-      'O que você mais aprendeu com um colega nesta sprint?',
-      'Qual momento foi mais divertido da equipe?',
-      'O que poderia ter sido feito de forma diferente?',
-      'Qual foi o maior desafio superado pela equipe?',
-      'Quem te surpreendeu positivamente nesta sprint?',
-      'O que você gostaria de ver mais vezes na próxima sprint?',
-      'Qual foi a maior conquista desta sprint?'
+      'Qual é o seu hobby favorito fora do trabalho?',
+      'Qual lugar você mais gostou de visitar?',
+      'Qual é o seu filme ou série preferida?',
+      'Qual comida você nunca recusaria?',
+      'Qual talento escondido você tem?',
+      'Qual foi a melhor festa que você já foi?',
+      'Qual músico ou banda você não perde um show?',
+      'Qual é o seu momento do dia preferido?'
     ];
     var suggestionIndex = 0;
     return '<span class="dyn-panel-label">✏️ Painel do organizador</span>' +
@@ -806,14 +806,14 @@
     if (!input) return;
     if (input.value.trim()) return;
     var suggestions = [
-      'Qual foi a coisa mais inusitada que aconteceu nesta sprint?',
-      'O que você mais aprendeu com um colega nesta sprint?',
-      'Qual momento foi mais divertido da equipe?',
-      'O que poderia ter sido feito de forma diferente?',
-      'Qual foi o maior desafio superado pela equipe?',
-      'Quem te surpreendeu positivamente nesta sprint?',
-      'O que você gostaria de ver mais vezes na próxima sprint?',
-      'Qual foi a maior conquista desta sprint?'
+      'Qual é o seu hobby favorito fora do trabalho?',
+      'Qual lugar você mais gostou de visitar?',
+      'Qual é o seu filme ou série preferida?',
+      'Qual comida você nunca recusaria?',
+      'Qual talento escondido você tem?',
+      'Qual foi a melhor festa que você já foi?',
+      'Qual músico ou banda você não perde um show?',
+      'Qual é o seu momento do dia preferido?'
     ];
     var currentPlaceholder = input.getAttribute('data-placeholder-index') || 0;
     var nextIndex = (Number(currentPlaceholder) + 1) % suggestions.length;
