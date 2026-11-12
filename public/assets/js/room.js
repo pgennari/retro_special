@@ -117,7 +117,8 @@
     refs.headerUser = document.getElementById('header-user');
     refs.headerUserAvatar = document.getElementById('header-user-avatar');
     refs.headerUserName = document.getElementById('header-user-name');
-    refs.presentingToggle = document.getElementById('presenting-toggle');
+    refs.presentingSwitch = document.getElementById('presenting-switch');
+    refs.presentingCheckbox = document.getElementById('presenting-checkbox');
     refs.leaveBtn = document.getElementById('leave-btn');
     refs.phase = document.getElementById('dynamics-phase');
     refs.extra = document.getElementById('dynamics-extra');
@@ -165,7 +166,7 @@
 
     refs.codeChip.addEventListener('click', copyRoomLink);
     refs.leaveBtn.addEventListener('click', leaveRoom);
-    if (refs.presentingToggle) refs.presentingToggle.addEventListener('click', togglePresenting);
+    if (refs.presentingCheckbox) refs.presentingCheckbox.addEventListener('change', togglePresenting);
     refs.peopleBtn.addEventListener('click', togglePeople);
     refs.peopleList.addEventListener('click', handlePeopleClick);
     refs.tabs.addEventListener('click', handleTabClick);
@@ -514,10 +515,9 @@
     refs.footerCode.textContent = current.code;
     refs.roomDemoChip.hidden = !Retro.env.demo;
     if (refs.orgBadge) refs.orgBadge.hidden = !current.isOrganizer;
-    if (refs.presentingToggle) {
-      refs.presentingToggle.hidden = !current.isOrganizer;
-      refs.presentingToggle.classList.toggle('is-active', presenting);
-      refs.presentingToggle.textContent = presenting ? 'Apresentando' : 'Apresentando';
+    if (refs.presentingSwitch) {
+      refs.presentingSwitch.hidden = !current.isOrganizer;
+      if (refs.presentingCheckbox) refs.presentingCheckbox.checked = presenting;
     }
     renderHeaderUser();
 
@@ -557,7 +557,7 @@
 
   function togglePresenting() {
     presenting = !presenting;
-    if (refs.presentingToggle) refs.presentingToggle.classList.toggle('is-active', presenting);
+    if (refs.presentingCheckbox) refs.presentingCheckbox.checked = presenting;
     renderAll();
   }
 
@@ -602,9 +602,6 @@
     if (key === 'acertos') {
       cards.sort(function (a, b) { return (b.likeCount || 0) - (a.likeCount || 0); });
     }
-    if (presenting) {
-      cards = cards.filter(function (card) { return !card.isMine; });
-    }
 
     if (column.revealed) {
       panel.action.innerHTML = '<span class="state-pill revealed">✓ revelado</span>';
@@ -634,12 +631,13 @@
     var isLocked = !card.canRead;
     var plan = card.actionPlan || { text: '', assignees: [] };
     var isMine = card.isMine;
+    var showMine = isMine && !presenting;
 
     var removeHTML = card.canRemove
       ? '<button class="card-remove icon-btn danger" type="button" data-remove-card="' + esc(card.id) + '" title="Remover card" aria-label="Remover card">✕</button>'
       : '';
 
-    var mineBadge = isMine
+    var mineBadge = showMine
       ? '<span class="card-mine-badge" title="Sua autoria">você</span>'
       : '';
 
@@ -676,7 +674,7 @@
       }
     }
 
-    return '<article class="card column-' + key + (isLocked ? ' is-locked' : '') + (isMine ? ' is-mine' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
+    return '<article class="card column-' + key + (isLocked ? ' is-locked' : '') + (showMine ? ' is-mine' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
       removeHTML +
       mineBadge +
       '<p class="card-text">' + esc(card.text) + '</p>' +
