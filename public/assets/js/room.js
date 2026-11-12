@@ -461,6 +461,7 @@
     if (refs.headerUser) refs.headerUser.hidden = true;
     presenting = false;
     activeTab = 'acertos';
+    updateTabUi();
     refs.avatarStack.innerHTML = '';
     refs.peopleCount.textContent = '0';
     refs.peopleList.innerHTML = '';
