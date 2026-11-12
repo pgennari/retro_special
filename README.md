@@ -1,8 +1,8 @@
 # Retro Special
 
-Board de retrospectiva de sprint com **Acertos**, **Melhorias** e uma **dinâmica de adivinhação** — em tempo real, sem cadastro e sem dependências.
+Board de retrospectiva de sprint com **Acertos**, **Melhorias** e uma **dinâmica de adivinhação** — em tempo real, sem cadastro.
 
-![Node](https://img.shields.io/badge/Node.js-18%2B-b6ff5c?style=flat-square) ![Sem dependências](https://img.shields.io/badge/dependências-0-5ce1ff?style=flat-square) ![Tempo real](https://img.shields.io/badge/tempo%20real-SSE-ff7ab6?style=flat-square)
+![Node](https://img.shields.io/badge/Node.js-18%2B-b6ff5c?style=flat-square) ![Ícones](https://img.shields.io/badge/ícones-Phosphor-5ce1ff?style=flat-square) ![Tempo real](https://img.shields.io/badge/tempo%20real-SSE-ff7ab6?style=flat-square)
 
 ## Como rodar
 
@@ -18,7 +18,7 @@ Abra **http://localhost:3030**. Para mudar a porta:
 PORT=4000 node server.js
 ```
 
-Não existe etapa de instalação: o projeto usa apenas recursos nativos do Node (`http`, `fs`, `path`, `crypto` e `fetch`) e JavaScript no navegador. Sem variáveis de ambiente, as salas ficam em memória. Para testar o Firestore localmente, defina `FIREBASE_SERVICE_ACCOUNT` e `FIREBASE_PROJECT_ID` no shell (há um modelo em `.env.example`; o Node não carrega esse arquivo sozinho).
+Não existe etapa de instalação: o projeto usa apenas recursos nativos do Node (`http`, `fs`, `path`, `crypto` e `fetch`) e JavaScript no navegador. Os ícones usam a biblioteca [Phosphor Icons](https://phosphoricons.com/) via CDN. Sem variáveis de ambiente, as salas ficam em memória. Para testar o Firestore localmente, defina `FIREBASE_SERVICE_ACCOUNT` e `FIREBASE_PROJECT_ID` no shell (há um modelo em `.env.example`; o Node não carrega esse arquivo sozinho).
 
 ## O que tem
 
@@ -122,7 +122,7 @@ O backend do Render e o Firestore têm camadas gratuitas; o Hosting no Spark inc
 ## Estrutura
 
 ```
-server.js                 servidor HTTP + SSE, sem dependências
+server.js                 servidor HTTP + SSE
 lib/firestore.js          cliente REST do Firestore (JWT RS256 com crypto)
 lib/store.js              cache de salas, fila de gravação e fotos
 public/index.html         marcação da home e da sala

@@ -1,9 +1,11 @@
 /*
- * Retro Special — servidor HTTP (sem dependências externas).
+ * Retro Special — servidor HTTP.
  *
  * - API REST para criar/entrar e executar ações
  * - Server-Sent Events para sincronizar a sala em tempo real
  * - Persistência opcional no Firestore (REST + service account)
+ *
+ * Ícones da UI via Phosphor Icons (CDN).
  *
  * Basta rodar: node server.js
  */

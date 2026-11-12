@@ -1,7 +1,7 @@
 /*
  * Integração do cliente Firestore contra um servidor REST falso.
  * Valida JWT, rotas, codec e criação atômica sem tocar no Google.
- * Roda sem dependências: node tests/firestore.test.js
+ * Roda com Node: node tests/firestore.test.js
  */
 'use strict';
 

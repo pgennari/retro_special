@@ -713,10 +713,9 @@ img { max-width: 100%; }
   color: var(--ink-strong);
 }
 
-.invite-icon svg {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
+.invite-icon.ph {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .invite-banner strong { display: block; font-size: 12.5px; }

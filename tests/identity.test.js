@@ -2,7 +2,7 @@
  * Identidade por janela: simula abas/janelas com localStorage compartilhado
  * e sessionStorage independente (como duas janelas anônimas do Chrome).
  *
- * Roda no Node sem dependências: node tests/identity.test.js
+ * Roda com Node: node tests/identity.test.js
  */
 'use strict';
 
