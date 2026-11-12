@@ -711,7 +711,12 @@ img { max-width: 100%; }
   place-items: center;
   background: var(--yellow);
   color: var(--ink-strong);
-  font-size: 22px !important;
+}
+
+.invite-icon svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
 }
 
 .invite-banner strong { display: block; font-size: 12.5px; }
