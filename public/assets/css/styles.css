@@ -715,12 +715,16 @@ img { max-width: 100%; }
 }
 
 .invite-icon.ph {
-  font-size: 18px;
-  line-height: 1;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
 }
 
-.invite-banner strong { display: block; font-size: 12.5px; }
-.invite-banner span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.invite-banner > div strong { display: block; font-size: 12.5px; }
+.invite-banner > div span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
 .invite-banner b { color: var(--ink-strong); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
 
 .identity-grid {
@@ -800,16 +804,17 @@ img { max-width: 100%; }
 .avatar-picker { display: flex; flex-direction: column; gap: 6px; }
 
 .avatar-options {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  grid-auto-rows: 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 5px;
 }
 
 .avatar-option {
-  width: 100%;
-  aspect-ratio: 1;
-  padding: 2px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  padding: 0;
+  box-sizing: border-box;
   border: 2px solid transparent;
   border-radius: 50%;
   background: transparent;
@@ -818,7 +823,7 @@ img { max-width: 100%; }
   transition: transform 0.16s, border-color 0.18s, background 0.18s;
 }
 
-.avatar-option .avatar { --size: 31px !important; }
+.avatar-option .avatar { --size: 26px !important; }
 
 .avatar-option:hover {
   transform: translateY(-2px) scale(1.06);
@@ -3153,8 +3158,9 @@ img { max-width: 100%; }
   .avatar-preview-inner { border-radius: 16px; }
   .avatar-preview-inner .avatar,
   .avatar-preview-inner img { border-radius: 16px !important; }
-  .avatar-options { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; }
-  .avatar-option .avatar { --size: 27px !important; }
+  .avatar-options { gap: 4px; }
+  .avatar-option { width: 30px; height: 30px; }
+  .avatar-option .avatar { --size: 24px !important; }
   .btn-continue { font-size: 13.5px; }
   .home-footer { font-size: 9.5px; }
 
