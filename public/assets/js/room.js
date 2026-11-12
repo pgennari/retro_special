@@ -787,7 +787,6 @@
     var suggestionIndex = 0;
     return '<span class="dyn-panel-label">✏️ Painel do organizador</span>' +
       '<div class="dyn-setup">' +
-      '<div class="dyn-copy">' +
       '<div class="dyn-question-editor">' +
         '<textarea id="question-input" maxlength="300" placeholder="' + suggestions[0] + '">' + esc(question) + '</textarea>' +
         '<div class="dyn-editor-foot">' +
@@ -797,7 +796,6 @@
             '<button class="btn btn-primary btn-small" type="button" data-action="start-collecting" id="start-collecting-btn" ' + (disabled ? 'disabled' : '') + '>Liberar respostas →</button>' +
           '</div>' +
         '</div>' +
-      '</div>' +
       '</div>' +
       '</div>';
   }
