@@ -802,6 +802,7 @@ img { max-width: 100%; }
 .avatar-options {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
   gap: 5px;
 }
 
@@ -828,6 +829,7 @@ img { max-width: 100%; }
   border-color: var(--border);
   background: var(--yellow-soft);
   box-shadow: 0 0 0 2px var(--yellow);
+  aspect-ratio: 1;
 }
 
 .btn-continue { margin-top: 2px; padding: 13px 18px; font-size: 14.5px; }
