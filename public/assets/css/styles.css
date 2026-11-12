@@ -707,14 +707,15 @@ img { max-width: 100%; }
   flex: 0 0 auto;
   border: 2px solid var(--border);
   border-radius: 10px;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--yellow);
   color: var(--ink-strong);
 }
 
 .invite-icon.ph {
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
 }
 
