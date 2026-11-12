@@ -23,6 +23,7 @@
   var currentCode = null;
   var currentUserId = null;
   var presenting = false;
+  var placeholderInterval = null;
   var connection = null;
   var openToken = 0;
   var status = 'connecting';
@@ -463,6 +464,7 @@
     presenting = false;
     activeTab = 'acertos';
     updateTabUi();
+    stopQuestionPlaceholderRotation();
     refs.avatarStack.innerHTML = '';
     refs.peopleCount.textContent = '0';
     refs.peopleList.innerHTML = '';
@@ -714,6 +716,12 @@
     refs.dynamicsBody.innerHTML = body;
     ui.restoreFocus(refs.dynamicsBody, focus);
 
+    if (d.phase === 'setup') {
+      startQuestionPlaceholderRotation();
+    } else {
+      stopQuestionPlaceholderRotation();
+    }
+
     // micro animação nos pontos que acabaram de subir
     if (d.phase === 'closed' || d.phase === 'done') {
       var bumps = [];
@@ -790,21 +798,42 @@
           '</div>' +
         '</div>' +
       '</div>' +
-      '<script>' +
-      '(function() {' +
-      '  var input = document.getElementById("question-input");' +
-      '  if (!input) return;' +
-      '  var suggestions = ' + JSON.stringify(suggestions) + ';' +
-      '  var i = 0;' +
-      '  setInterval(function() {' +
-      '    i = (i + 1) % suggestions.length;' +
-      '    if (!input.value.trim()) input.placeholder = suggestions[i];' +
-      '  }, 4000);' +
-      '})();' +
-      '</script>' +
-      '</div>' +
       '</div>' +
       '</div>';
+  }
+
+  function rotateQuestionPlaceholder() {
+    if (!placeholderInterval) return;
+    var input = document.getElementById('question-input');
+    if (!input) return;
+    if (input.value.trim()) return;
+    var suggestions = [
+      'Qual foi a coisa mais inusitada que aconteceu nesta sprint?',
+      'O que você mais aprendeu com um colega nesta sprint?',
+      'Qual momento foi mais divertido da equipe?',
+      'O que poderia ter sido feito de forma diferente?',
+      'Qual foi o maior desafio superado pela equipe?',
+      'Quem te surpreendeu positivamente nesta sprint?',
+      'O que você gostaria de ver mais vezes na próxima sprint?',
+      'Qual foi a maior conquista desta sprint?'
+    ];
+    var currentPlaceholder = input.getAttribute('data-placeholder-index') || 0;
+    var nextIndex = (Number(currentPlaceholder) + 1) % suggestions.length;
+    input.placeholder = suggestions[nextIndex];
+    input.setAttribute('data-placeholder-index', nextIndex);
+  }
+
+  function startQuestionPlaceholderRotation() {
+    if (placeholderInterval) clearInterval(placeholderInterval);
+    placeholderInterval = setInterval(rotateQuestionPlaceholder, 4000);
+    rotateQuestionPlaceholder();
+  }
+
+  function stopQuestionPlaceholderRotation() {
+    if (placeholderInterval) {
+      clearInterval(placeholderInterval);
+      placeholderInterval = null;
+    }
   }
 
   function questionBlockHTML(d) {
