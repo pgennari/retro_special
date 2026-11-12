@@ -35,8 +35,6 @@
     els.inviteCode = document.getElementById('invite-code');
     els.lobbyInvite = document.getElementById('lobby-invite');
     els.lobbyInviteCode = document.getElementById('lobby-invite-code');
-    els.demoChip = document.getElementById('demo-chip');
-    els.demoNote = document.getElementById('demo-note');
   }
 
   function setStep(step) {
@@ -77,8 +75,6 @@
       els.lobbyInviteCode.textContent = pendingCode;
       els.lobbyInvite.hidden = false;
     }
-    els.demoChip.hidden = !Retro.env.demo;
-    els.demoNote.hidden = !Retro.env.demo;
   }
 
   function showIdentityStep(focus) {
@@ -281,9 +277,6 @@
     } else {
       showIdentityStep(false);
     }
-
-    els.demoChip.hidden = !Retro.env.demo;
-    els.demoNote.hidden = !Retro.env.demo;
 
     if (options.error) ui.toast(options.error, 'error');
   }

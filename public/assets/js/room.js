@@ -102,7 +102,6 @@
     refs.codeChip = document.getElementById('code-chip');
     refs.roomCode = document.getElementById('room-code');
     refs.footerCode = document.getElementById('footer-code');
-    refs.roomDemoChip = document.getElementById('room-demo-chip');
     refs.orgBadge = document.getElementById('org-badge');
     refs.tabs = document.getElementById('room-tabs');
     refs.livePill = document.getElementById('live-pill');
@@ -458,7 +457,6 @@
     refs.roomCode.textContent = code;
     refs.footerCode.textContent = code;
     refs.peopleBtn.setAttribute('aria-label', 'Pessoas na sala (0)');
-    refs.roomDemoChip.hidden = !Retro.env.demo;
     if (refs.orgBadge) refs.orgBadge.hidden = true;
     if (refs.headerUser) refs.headerUser.hidden = true;
     presenting = false;
@@ -515,7 +513,6 @@
   function renderHeader() {
     refs.roomCode.textContent = current.code;
     refs.footerCode.textContent = current.code;
-    refs.roomDemoChip.hidden = !Retro.env.demo;
     if (refs.orgBadge) refs.orgBadge.hidden = !current.isOrganizer;
     if (refs.presentingSwitch) {
       refs.presentingSwitch.hidden = !current.isOrganizer;

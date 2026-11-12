@@ -8,7 +8,6 @@
   var identity = Retro.identity;
 
   var params = new URLSearchParams(window.location.search);
-  var demo = window.location.protocol === 'file:' || params.get('demo') === '1';
   var localHost = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
   var isLocal = window.location.protocol === 'file:' || localHost;
   var configuredBase = window.RETRO_CONFIG && typeof window.RETRO_CONFIG.apiBase === 'string'
@@ -16,10 +15,10 @@
     : '';
 
   Retro.env = {
-    demo: demo,
+    demo: false,
     protocol: window.location.protocol,
-    // em localhost a API roda na mesma origem; publicado, aponta para o Render
-    apiBase: isLocal ? '' : configuredBase,
+    // sempre exige backend configurado
+    apiBase: configuredBase,
     hosted: !isLocal
   };
 
@@ -156,13 +155,8 @@
     url.searchParams.delete('sala');
     url.searchParams.delete('room');
     if (/^\/sala\/[A-Za-z0-9]{4,8}\/?$/i.test(url.pathname)) url.pathname = '/';
-    if (Retro.env.demo) {
-      url.searchParams.set('demo', '1');
-    } else {
-      url.searchParams.delete('demo');
-      if (/\/index\.html$/i.test(url.pathname)) {
-        url.pathname = url.pathname.replace(/index\.html$/i, '');
-      }
+    if (/\/index\.html$/i.test(url.pathname)) {
+      url.pathname = url.pathname.replace(/index\.html$/i, '');
     }
     return url.toString().replace(/#$/, '') + '#/sala/' + code;
   }

@@ -1,21 +1,13 @@
-/* Retro Special — camada de dados (servidor via SSE ou demo local) */
+/* Retro Special — camada de dados (servidor via SSE) */
 (function () {
   'use strict';
 
   window.Retro = window.Retro || {};
 
   var engine = window.RetroEngine;
-  var DEMO_KEY = 'retro-special:demo:rooms:v1';
-  var DEMO_CHANNEL = 'retro-special:demo:v1';
-
-  var demoSubs = [];
-  var demoBc = null;
-  var demoBcReady = false;
-  var demoStorageBound = false;
-  var memoryRooms = null;
 
   function isDemo() {
-    return !!(Retro.env && Retro.env.demo);
+    return false;
   }
 
   function apiBase() {
@@ -27,7 +19,7 @@
   }
 
   function missingBase() {
-    return !!(Retro.env && Retro.env.hosted && !apiBase());
+    return !apiBase();
   }
 
   function configError() {
@@ -55,8 +47,6 @@
     }
     return data || {};
   }
-
-  /* ------------------------------- real -------------------------------- */
 
   async function realCreateRoom(identity) {
     var data = await request('/api/rooms', {
@@ -86,11 +76,6 @@
   }
 
   function realConnect(code, userId, handlers) {
-    if (missingBase()) {
-      if (handlers.onStatus) setTimeout(function () { handlers.onStatus('offline'); }, 0);
-      if (handlers.onKicked) setTimeout(function () { handlers.onKicked(configError().message); }, 0);
-      return { close: function () {} };
-    }
     var source = new EventSource(apiURL('/api/rooms/' + encodeURIComponent(code) + '/stream?userId=' + encodeURIComponent(userId)));
     var closed = false;
     var errors = 0;
@@ -140,240 +125,11 @@
     };
   }
 
-  /* ------------------------------- demo -------------------------------- */
-
-  function demoStore() {
-    try { return window.localStorage; } catch (error) { return null; }
-  }
-
-  function loadRooms() {
-    var store = demoStore();
-    if (!store) {
-      if (!memoryRooms) memoryRooms = {};
-      return memoryRooms;
-    }
-    // sempre relê do storage: outras abas podem ter alterado as salas
-    try {
-      var raw = store.getItem(DEMO_KEY);
-      var parsed = raw ? JSON.parse(raw) : null;
-      memoryRooms = parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (error) {
-      if (!memoryRooms) memoryRooms = {};
-    }
-    return memoryRooms;
-  }
-
-  function saveRooms(rooms) {
-    memoryRooms = rooms;
-    var store = demoStore();
-    if (!store) return;
-    try {
-      store.setItem(DEMO_KEY, JSON.stringify(rooms));
-    } catch (error) {
-      // se estourar a quota, remove salas antigas e tenta de novo
-      try {
-        var entries = Object.keys(rooms).map(function (code) { return [code, rooms[code]]; });
-        entries.sort(function (a, b) { return (a[1].updatedAt || 0) - (b[1].updatedAt || 0); });
-        while (entries.length > 6) {
-          delete rooms[entries.shift()[0]];
-        }
-        store.setItem(DEMO_KEY, JSON.stringify(rooms));
-      } catch (secondError) {
-        console.warn('Modo demo: não foi possível persistir as salas.', secondError);
-      }
-    }
-  }
-
-  function demoLoadRoom(code) {
-    var rooms = loadRooms();
-    return rooms[code] || null;
-  }
-
-  function demoSaveRoom(room) {
-    var rooms = loadRooms();
-    rooms[room.code] = room;
-    // mantém no máximo 12 salas de demonstração
-    var codes = Object.keys(rooms);
-    if (codes.length > 12) {
-      codes.sort(function (a, b) { return (rooms[a].updatedAt || 0) - (rooms[b].updatedAt || 0); });
-      while (codes.length > 12) {
-        var oldest = codes.shift();
-        if (!demoSubs.some(function (sub) { return sub.code === oldest; })) {
-          delete rooms[oldest];
-        }
-      }
-    }
-    saveRooms(rooms);
-  }
-
-  function ensureBroadcast() {
-    if (demoBcReady) return demoBc;
-    demoBcReady = true;
-    try {
-      if (typeof BroadcastChannel !== 'undefined') {
-        demoBc = new BroadcastChannel(DEMO_CHANNEL);
-        demoBc.onmessage = function (event) {
-          var data = event && event.data;
-          if (data && data.code) deliverDemo(data.code, data.event || null);
-        };
-      }
-    } catch (error) {
-      demoBc = null;
-    }
-
-    if (!demoBc && !demoStorageBound) {
-      demoStorageBound = true;
-      window.addEventListener('storage', function (event) {
-        if (event.key !== DEMO_KEY) return;
-        var codes = {};
-        demoSubs.forEach(function (sub) { codes[sub.code] = true; });
-        Object.keys(codes).forEach(function (code) { deliverDemo(code); });
-      });
-    }
-    return demoBc;
-  }
-
-  function notifyDemo(code, event) {
-    deliverDemo(code, event || null);
-    var bc = ensureBroadcast();
-    if (bc) {
-      try {
-        bc.postMessage({ code: code, event: event || null, at: Date.now() });
-      } catch (error) { /* noop */ }
-    }
-  }
-
-  function deliverDemo(code, event) {
-    var room = demoLoadRoom(code);
-    if (!room) {
-      demoSubs.slice().forEach(function (sub) {
-        if (sub.code !== code) return;
-        removeDemoSub(sub);
-        if (sub.handlers.onKicked) sub.handlers.onKicked('Esta sala não existe mais.');
-      });
-      return;
-    }
-    demoSubs.slice().forEach(function (sub) {
-      if (sub.code !== code) return;
-      var user = engine.findUser(room, sub.userId);
-      if (!user) {
-        removeDemoSub(sub);
-        if (sub.handlers.onKicked) sub.handlers.onKicked('Você não está mais nesta sala.');
-        return;
-      }
-      var state = engine.getState(room, sub.userId);
-      if (sub.handlers.onState) sub.handlers.onState(state);
-      if (event && sub.handlers.onEvent) sub.handlers.onEvent(event);
-    });
-  }
-
-  function removeDemoSub(sub) {
-    var index = demoSubs.indexOf(sub);
-    if (index !== -1) demoSubs.splice(index, 1);
-  }
-
-  async function demoCreateRoom(identity) {
-    var rooms = loadRooms();
-    var code;
-    var attempts = 0;
-    do {
-      code = engine.randomCode(6);
-      attempts += 1;
-    } while (rooms[code] && attempts < 100);
-    var room = engine.createRoom(identity, code);
-    demoSaveRoom(room);
-    return { code: code, state: engine.getState(room, identity.id) };
-  }
-
-  async function demoJoinRoom(code, identity) {
-    var room = demoLoadRoom(code);
-    if (!room) throw apiError('Sala não encontrada. Confira o código.', 404);
-    var result = engine.joinRoom(room, identity);
-    if (!result.ok) throw apiError(result.error, 400);
-    demoSaveRoom(room);
-    var state = engine.getState(room, identity.id);
-    notifyDemo(code, result.isNew
-      ? { kind: 'member-joined', userId: result.user.id }
-      : { kind: 'presence', userId: result.user.id, connected: true });
-    return { code: code, state: state, user: result.user, isNew: result.isNew };
-  }
-
-  async function demoAction(code, userId, type, payload) {
-    var room = demoLoadRoom(code);
-    if (!room) throw apiError('Sala não encontrada.', 404);
-    var result = engine.applyAction(room, userId, type, payload || {});
-    if (!result.ok) throw apiError(result.error, 400);
-    demoSaveRoom(room);
-    var event = result.event ? Object.assign({}, result.event, { actorId: userId }) : null;
-    notifyDemo(code, event);
-    return { state: engine.getState(room, userId), event: event };
-  }
-
-  function demoConnect(code, userId, handlers) {
-    ensureBroadcast();
-    var room = demoLoadRoom(code);
-    if (!room) {
-      setTimeout(function () {
-        if (handlers.onKicked) handlers.onKicked('Sala não encontrada.');
-      }, 30);
-      return { close: function () {} };
-    }
-
-    if (engine.setConnected(room, userId, true)) {
-      demoSaveRoom(room);
-    }
-
-    var sub = { code: code, userId: userId, handlers: handlers };
-    var closed = false;
-    demoSubs.push(sub);
-
-    function disconnect() {
-      if (closed) return;
-      closed = true;
-      window.removeEventListener('pagehide', handlePageHide);
-      removeDemoSub(sub);
-      var currentRoom = demoLoadRoom(code);
-      if (currentRoom && engine.setConnected(currentRoom, userId, false)) {
-        demoSaveRoom(currentRoom);
-        notifyDemo(code);
-      }
-    }
-
-    function handlePageHide(event) {
-      // persisted = entrou no cache de páginas: mantém presença para voltar rápido
-      if (event && event.persisted) return;
-      disconnect();
-    }
-
-    window.addEventListener('pagehide', handlePageHide);
-
-    if (handlers.onStatus) handlers.onStatus('online');
-    var state = engine.getState(room, userId);
-    if (handlers.onState) handlers.onState(state);
-
-    // presencia outros participantes já conectados
-    notifyDemo(code);
-
-    return {
-      close: disconnect
-    };
-  }
-
-  /* ------------------------------- API --------------------------------- */
-
   Retro.api = {
-    createRoom: function (identity) {
-      return isDemo() ? demoCreateRoom(identity) : realCreateRoom(identity);
-    },
-    joinRoom: function (code, identity) {
-      return isDemo() ? demoJoinRoom(code, identity) : realJoinRoom(code, identity);
-    },
-    action: function (code, userId, type, payload) {
-      return isDemo() ? demoAction(code, userId, type, payload) : realAction(code, userId, type, payload);
-    },
-    connect: function (code, userId, handlers) {
-      return isDemo() ? demoConnect(code, userId, handlers) : realConnect(code, userId, handlers);
-    },
+    createRoom: realCreateRoom,
+    joinRoom: realJoinRoom,
+    action: realAction,
+    connect: realConnect,
     isDemo: isDemo
   };
 }());

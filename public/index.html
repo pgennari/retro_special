@@ -25,7 +25,6 @@
             <span class="brand-name">Retro Special<span class="bang">!</span></span>
           </a>
           <div class="nav-right">
-            <span class="demo-chip" id="demo-chip" hidden>modo demo</span>
             <span class="nav-note">sem cadastro · sem instalação</span>
           </div>
         </header>
@@ -192,6 +191,14 @@
             <span class="demo-chip" id="room-demo-chip" hidden>demo</span>
           </div>
 
+          <div class="room-header-center">
+            <label class="presenting-switch" id="presenting-switch" title="Apresentando" hidden>
+              <span class="presenting-switch-label">Apresentando</span>
+              <input type="checkbox" class="presenting-switch-checkbox" id="presenting-checkbox">
+              <span class="presenting-switch-slider"></span>
+            </label>
+          </div>
+
           <div class="room-header-right">
             <span class="live-pill" id="live-pill"><i></i><span id="live-text">ao vivo</span></span>
             <button class="people-btn" id="people-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Pessoas na sala (0)" title="Pessoas na sala">
@@ -205,13 +212,6 @@
             <button class="btn btn-ghost btn-small" id="leave-btn" type="button">Sair</button>
           </div>
 
-          <div class="room-header-center">
-            <label class="presenting-switch" id="presenting-switch" title="Apresentando" hidden>
-              <span class="presenting-switch-label">Apresentando</span>
-              <input type="checkbox" class="presenting-switch-checkbox" id="presenting-checkbox">
-              <span class="presenting-switch-slider"></span>
-            </label>
-          </div>
 
           <div class="people-popover" id="people-popover" role="dialog" aria-label="Pessoas na sala" hidden>
             <div class="pop-head">
