@@ -1109,9 +1109,9 @@
     var scores = d.scores || [];
     // Encontra o menor pontuação
     var minPoints = Math.min(...scores.map(function (s) { return s.points; }));
-    var worst performers = scores.filter(function (s) { return s.points === minPoints && s.points > 0; });
-    var worstClass = worst performers.length > 0 ? ' worst-performer' : '';
-    var worstPhrase = worst performers.length > 0 ? '<span class="worst-phrase">Vocês comandarão as dailys da próxima sprint!</span>' : '';
+    var worstPerformers = scores.filter(function (s) { return s.points === minPoints && s.points > 0; });
+    var worstClass = worstPerformers.length > 0 ? ' worst-performer' : '';
+    var worstPhrase = worstPerformers.length > 0 ? '<span class="worst-phrase">Vocês comandarão as dailys da próxima sprint!</span>' : '';
     var rows = scores.map(function (score, index) {
       var classStr = (score.userId === currentUserId ? ' is-me' : '') + (score.points === minPoints && score.points > 0 ? ' worst-performer' : '');
       return '<li class="score-row' + classStr + '" data-user-id="' + esc(score.userId) + '">' +
