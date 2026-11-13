@@ -1036,10 +1036,15 @@
   function revealHTML(d) {
     var html = '';
     if (d.phase === 'done') {
-      html += podiumHTML(d);
-      html += worstCalloutHTML(d);
+      var podium = podiumHTML(d);
+      var worst = worstCalloutHTML(d);
+      if (podium || worst) {
+        html += '<div class="result-highlights">' + podium + worst + '</div>';
+      }
+      html += '<div class="result-scoreboard">' + scoreboardHTML(d) + '</div>';
+    } else {
+      html += questionBlockHTML(d);
     }
-    if (d.phase !== 'done') html += questionBlockHTML(d);
 
     var revealAction;
     if (current.isOrganizer && d.phase === 'closed') {
@@ -1101,10 +1106,14 @@
         '</article>';
     }).join('');
 
-    html += '<div class="reveal-layout">' +
-      '<div class="reveal-grid">' + answerCards + '</div>' +
-      scoreboardHTML(d) +
-      '</div>';
+    if (d.phase === 'done') {
+      html += '<div class="reveal-grid">' + answerCards + '</div>';
+    } else {
+      html += '<div class="reveal-layout">' +
+        '<div class="reveal-grid">' + answerCards + '</div>' +
+        scoreboardHTML(d) +
+        '</div>';
+    }
     return html;
   }
 
