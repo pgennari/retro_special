@@ -1107,8 +1107,14 @@
 
   function scoreboardHTML(d) {
     var scores = d.scores || [];
+    // Encontra o menor pontuação
+    var minPoints = Math.min(...scores.map(function (s) { return s.points; }));
+    var worst performers = scores.filter(function (s) { return s.points === minPoints && s.points > 0; });
+    var worstClass = worst performers.length > 0 ? ' worst-performer' : '';
+    var worstPhrase = worst performers.length > 0 ? '<span class="worst-phrase">Vocês comandarão as dailys da próxima sprint!</span>' : '';
     var rows = scores.map(function (score, index) {
-      return '<li class="score-row' + (score.userId === currentUserId ? ' is-me' : '') + '" data-user-id="' + esc(score.userId) + '">' +
+      var classStr = (score.userId === currentUserId ? ' is-me' : '') + (score.points === minPoints && score.points > 0 ? ' worst-performer' : '');
+      return '<li class="score-row' + classStr + '" data-user-id="' + esc(score.userId) + '">' +
         '<span class="rank">' + (index + 1) + '</span>' +
         ui.avatarHTML(score.avatar, { size: 23, title: score.name }) +
         '<span class="score-name">' + esc(displayName(score)) + '</span>' +
@@ -1119,7 +1125,7 @@
     return '<aside class="scoreboard">' +
       '<h3>Placar</h3>' +
       '<ol class="score-list">' + (rows || '<li class="score-row"><span class="score-name">Aguardando revelações…</span></li>') + '</ol>' +
-      '<p class="score-note">1 ponto por autor que cada pessoa acertou · ' + d.revealedCount + ' de ' + d.totalAnswers + ' respostas reveladas.</p>' +
+      '<p class="score-note">1 ponto por autor que cada pessoa acertou · ' + d.revealedCount + ' de ' + d.totalAnswers + ' respostas reveladas.' + worstPhrase + '</p>' +
       '</aside>';
   }
 
