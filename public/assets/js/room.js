@@ -1035,7 +1035,10 @@
 
   function revealHTML(d) {
     var html = '';
-    if (d.phase === 'done') html += podiumHTML(d);
+    if (d.phase === 'done') {
+      html += podiumHTML(d);
+      html += worstCalloutHTML(d);
+    }
     if (d.phase !== 'done') html += questionBlockHTML(d);
 
     var revealAction;
@@ -1107,13 +1110,11 @@
 
   function scoreboardHTML(d) {
     var scores = d.scores || [];
-    // Encontra o menor pontuação
-    var minPoints = Math.min(...scores.map(function (s) { return s.points; }));
-    var worstPerformers = scores.filter(function (s) { return s.points === minPoints && s.points > 0; });
-    var worstClass = worstPerformers.length > 0 ? ' worst-performer' : '';
-    var worstPhrase = worstPerformers.length > 0 ? '<span class="worst-phrase">Vocês comandarão as dailys da próxima sprint!</span>' : '';
+    var hasLast = scores.length > 1 && scores[0].points > scores[scores.length - 1].points;
+    var minPoints = scores.length ? scores[scores.length - 1].points : 0;
     var rows = scores.map(function (score, index) {
-      var classStr = (score.userId === currentUserId ? ' is-me' : '') + (score.points === minPoints && score.points > 0 ? ' worst-performer' : '');
+      var classStr = (score.userId === currentUserId ? ' is-me' : '') +
+        (hasLast && score.points === minPoints ? ' worst-performer' : '');
       return '<li class="score-row' + classStr + '" data-user-id="' + esc(score.userId) + '">' +
         '<span class="rank">' + (index + 1) + '</span>' +
         ui.avatarHTML(score.avatar, { size: 23, title: score.name }) +
@@ -1125,8 +1126,38 @@
     return '<aside class="scoreboard">' +
       '<h3>Placar</h3>' +
       '<ol class="score-list">' + (rows || '<li class="score-row"><span class="score-name">Aguardando revelações…</span></li>') + '</ol>' +
-      '<p class="score-note">1 ponto por autor que cada pessoa acertou · ' + d.revealedCount + ' de ' + d.totalAnswers + ' respostas reveladas.' + worstPhrase + '</p>' +
+      '<p class="score-note">1 ponto por autor que cada pessoa acertou · ' + d.revealedCount + ' de ' + d.totalAnswers + ' respostas reveladas.</p>' +
       '</aside>';
+  }
+
+  function worstCalloutHTML(d) {
+    var scores = d.scores || [];
+    if (scores.length < 2) return '';
+    var topPoints = scores[0].points;
+    var minPoints = scores[scores.length - 1].points;
+    // Todo mundo empatado: não existe "menos pontos".
+    if (minPoints >= topPoints) return '';
+
+    var losers = scores.filter(function (score) { return score.points === minPoints; });
+    var names = losers.map(displayName);
+    var who = names.length > 1
+      ? names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1]
+      : names[0];
+    var headline = who + (losers.length > 1 ? ' ficaram' : ' ficou') +
+      ' com ' + minPoints + ' ' + ui.plural(minPoints, 'ponto', 'pontos') + '.';
+    var avatars = losers.map(function (score) {
+      return ui.userAvatar(score, { size: 30, title: score.name });
+    }).join('');
+
+    return '<div class="worst-callout">' +
+      '<span class="worst-callout-emoji" aria-hidden="true">📣</span>' +
+      '<div class="worst-callout-copy">' +
+        '<span class="worst-callout-eyebrow">menos pontos na fase</span>' +
+        '<h3>' + esc(headline) + '</h3>' +
+        '<p class="worst-callout-phrase">Vocês comandarão as dailys da próxima sprint!</p>' +
+      '</div>' +
+      '<div class="worst-callout-avatars">' + avatars + '</div>' +
+      '</div>';
   }
 
   function podiumHTML(d) {
@@ -1134,22 +1165,29 @@
     if (!scores.length) return '';
     var top = scores[0];
     var winners = scores.filter(function (score) { return score.points === top.points && score.points > 0; });
+    var eyebrow;
     var title;
+    var subtitle;
     if (top.points === 0) {
-      title = 'Ninguém acertou ninguém. O mistério permanece. 👀';
+      eyebrow = 'resultado da dinâmica';
+      title = 'Ninguém acertou ninguém desta vez.';
+      subtitle = 'O mistério permanece. 👀';
     } else {
-      var names = winners.map(function (winner) {
-        return displayName(winner);
-      });
-      title = names.join(' e ') + (winners.length > 1 ? ' dividem' : ' leva') +
-        ' a fase com ' + top.points + ' ' + ui.plural(top.points, 'ponto', 'pontos') + '!';
+      var names = winners.map(displayName);
+      var joined = names.length > 1
+        ? names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1]
+        : names[0];
+      eyebrow = winners.length > 1 ? 'vencedores · empate' : 'vencedor';
+      title = joined;
+      subtitle = (winners.length > 1 ? 'Dividem' : 'Fecha') +
+        ' a fase com ' + top.points + ' ' + ui.plural(top.points, 'ponto', 'pontos') + '.';
     }
     return '<div class="podium">' +
       '<span class="podium-trophy" aria-hidden="true">🏆</span>' +
       '<div class="podium-copy">' +
-        '<span class="podium-eyebrow">resultado da dinâmica</span>' +
+        '<span class="podium-eyebrow">' + esc(eyebrow) + '</span>' +
         '<h3>' + esc(title) + '</h3>' +
-        '<p>Obrigado por participar!</p>' +
+        '<p>' + esc(subtitle) + '</p>' +
       '</div>' +
       '</div>';
   }
