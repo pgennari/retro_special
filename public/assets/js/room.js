@@ -1046,7 +1046,7 @@
       html += questionBlockHTML(d);
     }
 
-    var revealAction;
+    var revealAction = '';
     if (current.isOrganizer && d.phase === 'closed') {
       revealAction = '<button class="btn btn-primary" type="button" data-action="reveal-next" ' + (d.canRevealNext ? '' : 'disabled') + '>Revelar próxima resposta →</button>';
     } else if (d.phase === 'closed') {
