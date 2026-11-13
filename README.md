@@ -48,14 +48,14 @@ Não existe etapa de instalação: o projeto usa apenas recursos nativos do Node
 
 ### Dinâmica
 1. O organizador escreve a pergunta e pode ocultá-la/exibi-la quando quiser.
-2. Libera as respostas; cada participante envia a sua (pode atualizar enquanto a rodada estiver aberta).
+2. Libera as respostas; cada participante envia a sua (pode atualizar enquanto a fase estiver ativa).
 3. Quando todos os conectados respondem, o organizador **embaralha**: uma animação mistura e apaga os avatares, e as respostas aparecem sem autoria.
 4. Todos arrastam (ou tocam) pessoas para as respostas que acham que cada uma escreveu. Os palpites ficam públicos.
 5. Com todos os palpites dados, o organizador **encerra a votação** e trava as alterações.
 6. Os autores são revelados **um por um**; cada acerto vale **1 ponto** e o placar sobe ao vivo.
-7. Ao final, o organizador pode iniciar uma nova rodada.
+7. Ao final, o organizador pode iniciar uma nova fase.
 
-Quem entra no meio da votação ou da revelação acompanha como espectador até a próxima rodada.
+Quem entra no meio da votação ou da revelação acompanha como espectador até a próxima fase.
 
 ## Modo demonstração
 

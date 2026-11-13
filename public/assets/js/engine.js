@@ -227,7 +227,7 @@
     room.colorSeq += 1;
     room.users.push(user);
 
-    // Quem chega durante a coleta de respostas pode participar da rodada.
+    // Quem chega durante a coleta de respostas pode participar da fase.
     if (room.dynamics.phase === 'collecting') {
       room.dynamics.participantIds.push(user.id);
     }
@@ -522,7 +522,7 @@
         if (d.order.indexOf(answerId) === -1) return { ok: false, error: 'Resposta inválida.' };
         if (targetId === userId) return { ok: false, error: 'Você não precisa adivinhar a sua própria resposta.' };
         var targetIsAuthor = d.answers.some(function (answer) { return answer.userId === targetId; });
-        if (!targetIsAuthor) return { ok: false, error: 'Pessoa inválida para esta rodada.' };
+        if (!targetIsAuthor) return { ok: false, error: 'Pessoa inválida para esta fase.' };
 
         if (!d.assignments[userId]) d.assignments[userId] = {};
         var myMap = d.assignments[userId];

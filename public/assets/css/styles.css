@@ -2498,10 +2498,21 @@ img { max-width: 100%; }
 /* revelação -------------------------------------------------------------- */
 
 .reveal-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 288px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.reveal-layout > * {
+  width: 100%;
+}
+
+.reveal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 13px;
+  min-height: 0;
 }
 
 .reveal-head {
@@ -2618,7 +2629,7 @@ img { max-width: 100%; }
   border-radius: 18px;
   background: var(--paper-2);
   box-shadow: 3px 3px 0 var(--border);
-  min-height: 260px;
+  min-height: 0;
 }
 
 .scoreboard h3 {

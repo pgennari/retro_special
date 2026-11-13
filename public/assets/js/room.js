@@ -12,7 +12,7 @@
     collecting: 'coletando respostas',
     voting: 'palpites abertos',
     closed: 'revelando autores',
-    done: 'rodada encerrada'
+    done: 'fase encerrada'
   };
 
   var COLUMN_LABELS = { acertos: 'Acertos', melhorias: 'Melhorias' };
@@ -862,9 +862,9 @@
     } else if (d.questionHiddenForMe) {
       answerBox = '<div class="answer-locked"><span class="lock-ico">🙈</span>A pergunta está oculta pelo organizador.<br>Assim que ela voltar, você poderá responder.</div>';
     } else if (d.isSpectator) {
-      answerBox = '<div class="answer-locked"><span class="lock-ico">👀</span>Você entrou depois do início desta rodada, então vai acompanhar de fora. Na próxima, participa!</div>';
+      answerBox = '<div class="answer-locked"><span class="lock-ico">👀</span>Você entrou depois do início desta fase, então vai acompanhar de fora. Na próxima, participa!</div>';
     } else {
-      answerBox = '<div class="answer-locked"><span class="lock-ico">⏳</span>Aguarde o organizador abrir a rodada.</div>';
+      answerBox = '<div class="answer-locked"><span class="lock-ico">⏳</span>Aguarde o organizador abrir a fase.</div>';
     }
 
     var participants = (d.participants || []).filter(function (person) { return person.isParticipant; });
@@ -974,11 +974,11 @@
       '</div>' +
       (d.canVote
         ? '<span class="my-progress">seus palpites <strong>' + myAssigned + '/' + myTotal + '</strong></span>'
-        : '<span class="my-progress">observando a rodada</span>') +
+        : '<span class="my-progress">observando a fase</span>') +
       '</div>';
 
     if (d.isSpectator) {
-      html += '<div class="question-hidden">👀 Você entrou depois do início desta rodada. Pode acompanhar os palpites, mas não participa desta vez.</div>';
+      html += '<div class="question-hidden">👀 Você entrou depois do início desta fase. Pode acompanhar os palpites, mas não participa desta vez.</div>';
     }
 
     html += '<div class="vote-grid">' + (d.answers || []).map(function (answer, index) {
@@ -1136,7 +1136,7 @@
         return displayName(winner);
       });
       title = names.join(' e ') + (winners.length > 1 ? ' dividem' : ' leva') +
-        ' a rodada com ' + top.points + ' ' + ui.plural(top.points, 'ponto', 'pontos') + '!';
+        ' a fase com ' + top.points + ' ' + ui.plural(top.points, 'ponto', 'pontos') + '!';
     }
     return '<div class="podium">' +
       '<span class="podium-trophy" aria-hidden="true">🏆</span>' +
@@ -1289,9 +1289,9 @@
   function resetDynamics() {
     if (!current || !current.isOrganizer) return;
     ui.confirmDialog({
-      title: 'Começar uma nova rodada?',
-      message: 'As respostas, os palpites e o placar desta rodada serão apagados. Não dá para desfazer.',
-      confirmLabel: 'Nova rodada',
+      title: 'Começar uma nova fase?',
+      message: 'As respostas, os palpites e o placar desta fase serão apagados. Não dá para desfazer.',
+      confirmLabel: 'Nova fase',
       danger: true
     }).then(function (ok) {
       if (!ok) return;
@@ -1303,7 +1303,7 @@
           questionDirty = false;
           selectedTarget = null;
           prevScores = {};
-          ui.toast('Nova rodada pronta!', 'success');
+          ui.toast('Nova fase pronta!', 'success');
           var input = document.getElementById('question-input');
           if (input) input.focus();
         }
@@ -1614,7 +1614,7 @@
       }
     } else if (event.kind === 'dynamics-reset') {
       // o toast de confirmação é local; para os outros, um aviso leve
-      if (event.actorId !== currentUserId) ui.toast('Uma nova rodada começou.', 'success');
+      if (event.actorId !== currentUserId) ui.toast('Uma nova fase começou.', 'success');
     }
   }
 
