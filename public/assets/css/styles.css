@@ -2661,10 +2661,6 @@ img { max-width: 100%; }
 .score-row.worst-performer .score-name { color: var(--ink-strong); }
 .score-row.worst-performer .score-points { color: var(--red); }
 
-.rank { width: 15px; color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 700; text-align: center; }
-.score-row:nth-child(1) .rank { color: #9a6a00; }
-.score-row:nth-child(2) .rank { color: #6f6a62; }
-.score-row:nth-child(3) .rank { color: #a65d32; }
 .score-row .avatar { --size: 24px !important; }
 
 .score-name {

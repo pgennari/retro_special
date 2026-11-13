@@ -1121,11 +1121,10 @@
     var scores = d.scores || [];
     var hasLast = scores.length > 1 && scores[0].points > scores[scores.length - 1].points;
     var minPoints = scores.length ? scores[scores.length - 1].points : 0;
-    var rows = scores.map(function (score, index) {
+    var rows = scores.map(function (score) {
       var classStr = (score.userId === currentUserId ? ' is-me' : '') +
         (hasLast && score.points === minPoints ? ' worst-performer' : '');
       return '<li class="score-row' + classStr + '" data-user-id="' + esc(score.userId) + '">' +
-        '<span class="rank">' + (index + 1) + '</span>' +
         ui.avatarHTML(score.avatar, { size: 23, title: score.name }) +
         '<span class="score-name">' + esc(displayName(score)) + '</span>' +
         '<span class="score-points' + (score.points ? '' : ' zero') + '">' + score.points + '</span>' +
