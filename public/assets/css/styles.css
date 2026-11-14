@@ -2524,17 +2524,6 @@ img { max-width: 100%; }
 
 /* revelação -------------------------------------------------------------- */
 
-.reveal-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: stretch;
-}
-
-.reveal-layout > * {
-  width: 100%;
-}
-
 .reveal-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -3198,7 +3187,6 @@ img { max-width: 100%; }
 
   .room-main { width: 100%; }
   .room-tabs { justify-content: center; }
-  .reveal-layout { grid-template-columns: 1fr; }
   .scoreboard { position: static; }
   .board-grid { grid-template-columns: 1fr; gap: 18px; }
   .panel-dynamics { grid-column: auto; }

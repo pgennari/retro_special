@@ -1036,17 +1036,18 @@
   }
 
   function revealHTML(d) {
-    var html = '';
+    var html = questionBlockHTML(d);
+
     if (d.phase === 'done') {
       var podium = podiumHTML(d);
       var worst = worstCalloutHTML(d);
       if (podium || worst) {
         html += '<div class="result-highlights">' + podium + worst + '</div>';
       }
-      html += '<div class="result-scoreboard">' + scoreboardHTML(d) + '</div>';
-    } else {
-      html += questionBlockHTML(d);
     }
+
+    // O placar fica sempre abaixo da pergunta (e dos destaques) e antes dos cards.
+    html += '<div class="result-scoreboard">' + scoreboardHTML(d) + '</div>';
 
     var revealAction = '';
     if (current.isOrganizer && d.phase === 'closed') {
@@ -1056,7 +1057,7 @@
     }
 
     html += '<div class="reveal-head">' +
-      '<div><h3>' + (d.phase === 'done' ? 'Placar final' : 'Hora da verdade') + '</h3>' +
+      '<div><h3>' + (d.phase === 'done' ? 'Respostas reveladas' : 'Hora da verdade') + '</h3>' +
       '<p>' + (d.phase === 'done'
         ? 'Todos os autores foram revelados. Este é o resultado da dinâmica.'
         : 'O organizador revela os autores um por um. Cada acerto vale 1 ponto.') + '</p></div>' +
@@ -1108,14 +1109,7 @@
         '</article>';
     }).join('');
 
-    if (d.phase === 'done') {
-      html += '<div class="reveal-grid">' + answerCards + '</div>';
-    } else {
-      html += '<div class="reveal-layout">' +
-        '<div class="reveal-grid">' + answerCards + '</div>' +
-        scoreboardHTML(d) +
-        '</div>';
-    }
+    html += '<div class="reveal-grid">' + answerCards + '</div>';
     return html;
   }
 
