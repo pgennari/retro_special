@@ -2317,6 +2317,33 @@ img { max-width: 100%; }
 
 .vote-card:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--border); }
 
+.vote-card.is-voted {
+  border-color: var(--green);
+  background: var(--green-soft);
+  box-shadow: 3px 3px 0 var(--green);
+}
+
+.vote-card.is-voted:hover { box-shadow: 4px 4px 0 var(--green); }
+.vote-card.is-voted .vote-index { color: var(--green); }
+
+.vote-flag {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--green);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  box-shadow: 2px 2px 0 var(--border);
+}
+
 .vote-index {
   color: var(--muted);
   font-family: var(--mono);

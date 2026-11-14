@@ -983,13 +983,15 @@
 
     html += '<div class="vote-grid">' + (d.answers || []).map(function (answer, index) {
       var isOwn = !!answer.mine;
+      var myVote = !!(d.myAssignments && d.myAssignments[answer.id]);
       var chips = assignmentChipsHTML(answer.id, { canEdit: d.canVote && !isOwn });
       var hint = chips ? '' : (d.canVote && !isOwn ? 'Arraste uma pessoa aqui' : 'Sua resposta');
       var dropzoneHTML = isOwn
         ? '<div class="dropzone is-own has-chips">' + (chips || '<span class="drop-hint">Você não pode votar na sua resposta</span>') + '</div>'
         : '<div class="dropzone' + (chips ? ' has-chips' : '') + '" data-dropzone="' + esc(answer.id) + '">' + (chips || '<span class="drop-hint">' + hint + '</span>') + '</div>';
-      return '<article class="vote-card' + (isOwn ? ' is-own' : '') + '" data-answer-id="' + esc(answer.id) + '">' +
+      return '<article class="vote-card' + (isOwn ? ' is-own' : '') + (myVote ? ' is-voted' : '') + '" data-answer-id="' + esc(answer.id) + '">' +
         '<span class="vote-index">RESPOSTA ' + String(index + 1).padStart(2, '0') + '</span>' +
+        (myVote ? '<span class="vote-flag" aria-label="Você votou nesta resposta">✓ seu palpite</span>' : '') +
         '<p class="answer-text">' + esc(answer.text) + '</p>' +
         dropzoneHTML +
         '</article>';
@@ -1029,7 +1031,7 @@
     }
 
     html += '<div class="voting-footer">' + voteStatus + afterVote + '</div>';
-    html += '<div class="vote-legend"><span class="mini-avatar-dot"></span> a bolinha pequena em cada avatar mostra quem fez aquele palpite.</div>';
+    html += '<div class="vote-legend"><span class="mini-avatar-dot"></span> a bolinha pequena em cada avatar mostra quem fez aquele palpite · cards em verde já têm o seu palpite.</div>';
     return html;
   }
 
