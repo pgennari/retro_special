@@ -660,10 +660,17 @@
           '</div>' +
           (plan.text ? '<p class="action-plan-text">' + esc(plan.text) + '</p>' : '') +
           (plan.assignees.length
-            ? '<div class="plan-assignees">' + plan.assignees.map(function (userId) {
-              var user = findUser(userId);
-              return user ? ui.userAvatar(user, { size: 19, ring: false }) : '';
-            }).join('') + '</div>'
+            ? '<div class="plan-assignees">' +
+              '<span class="plan-assignees-label">Responsáveis</span>' +
+              plan.assignees.map(function (userId) {
+                var user = findUser(userId);
+                if (!user) return '';
+                return '<span class="plan-assignee">' +
+                  ui.userAvatar(user, { size: 19, ring: false }) +
+                  '<span class="plan-assignee-name">' + esc(displayName(user)) + '</span>' +
+                  '</span>';
+              }).join('') +
+              '</div>'
             : '') +
           (card.canEditPlan ? '<button class="link-btn plan-link" type="button" data-plan="' + esc(card.id) + '">📝 Editar plano e responsáveis</button>' : '') +
           '</div>';

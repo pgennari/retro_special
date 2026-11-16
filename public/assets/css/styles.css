@@ -1803,8 +1803,38 @@ img { max-width: 100%; }
 
 .action-plan .plan-link { display: inline-block; margin-top: 8px; font-size: 10.5px; }
 
-.plan-assignees { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.plan-assignees { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
 .plan-assignees .avatar { --size: 22px !important; }
+
+.plan-assignees-label {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.plan-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 8px 2px 2px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.plan-assignee-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .plan-empty {
   display: flex;
