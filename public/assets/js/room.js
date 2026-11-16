@@ -1156,7 +1156,7 @@
     return '<div class="worst-callout">' +
       '<span class="worst-callout-emoji" aria-hidden="true">📣</span>' +
       '<div class="worst-callout-copy">' +
-        '<span class="worst-callout-eyebrow">menos pontos na fase</span>' +
+        '<span class="worst-callout-eyebrow">menos pontos</span>' +
         '<h3>' + esc(headline) + '</h3>' +
         '<p class="worst-callout-phrase">Vocês comandarão as dailys da próxima sprint!</p>' +
       '</div>' +
@@ -1183,15 +1183,13 @@
         : names[0];
       eyebrow = winners.length > 1 ? 'vencedores · empate' : 'vencedor';
       title = joined;
-      subtitle = (winners.length > 1 ? 'Dividem' : 'Fecha') +
-        ' a fase com ' + top.points + ' ' + ui.plural(top.points, 'ponto', 'pontos') + '.';
+      
     }
     return '<div class="podium">' +
       '<span class="podium-trophy" aria-hidden="true">🏆</span>' +
       '<div class="podium-copy">' +
         '<span class="podium-eyebrow">' + esc(eyebrow) + '</span>' +
         '<h3>' + esc(title) + '</h3>' +
-        '<p>' + esc(subtitle) + '</p>' +
       '</div>' +
       '</div>';
   }
