@@ -1325,7 +1325,8 @@ img { max-width: 100%; }
 .room-main {
   width: 100%;
   margin: 0;
-  padding: 22px 24px 40px;
+  /* Espaço extra embaixo para o botão flutuante da Dinâmica não cobrir cards. */
+  padding: 22px 24px 96px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -1333,12 +1334,25 @@ img { max-width: 100%; }
 }
 
 .room-tabs {
+  position: fixed;
+  right: 24px;
+  /* Valor padrão para navegadores sem :has(): fica acima da bandeja de pessoas. */
+  bottom: 88px;
+  z-index: 40;
   display: flex;
   align-items: center;
   gap: 11px;
-  margin: 0 0 26px;
+  margin: 0;
   padding: 0;
   justify-content: flex-end;
+}
+
+@media (min-width: 761px) {
+  @supports selector(:has(*)) {
+    .room-tabs { bottom: 24px; }
+    /* Na votação a bandeja ocupa o rodapé, então o botão sobe um pouco. */
+    .room-main:has(.people-tray) .room-tabs { bottom: 88px; }
+  }
 }
 
 .room-tab {
@@ -3229,7 +3243,7 @@ img { max-width: 100%; }
   .home-footer { margin-top: 8px; }
 
   .room-main { width: 100%; }
-  .room-tabs { justify-content: center; }
+  .room-tabs { right: 20px; }
   .scoreboard { position: static; }
   .result-scoreboard { top: 76px; }
   .board-grid { grid-template-columns: 1fr; gap: 18px; }
@@ -3243,7 +3257,7 @@ img { max-width: 100%; }
   .hero-title { font-size: clamp(42px, 12vw, 62px); }
   .entry-card { padding: 22px; border-radius: 22px; }
 
-  .room-main { padding: 16px 16px 32px; }
+  .room-main { padding: 16px 16px 96px; }
   .room-header-inner { padding: 10px 14px; gap: 8px; }
   .room-header-left .brand-name { display: none; }
   .room-header-left .brand-mark { width: 32px; height: 32px; }
@@ -3252,12 +3266,14 @@ img { max-width: 100%; }
   .people-popover { right: 14px; width: min(308px, calc(100vw - 28px)); }
 
   .room-tabs {
-    justify-content: flex-start;
+    right: 16px;
+    /* A bandeja de pessoas deixa de ser fixa nesta largura. */
+    bottom: 18px;
+    justify-content: flex-end;
     gap: 8px;
-    margin-bottom: 20px;
-    overflow-x: auto;
-    padding-bottom: 5px;
-    scrollbar-width: thin;
+    margin: 0;
+    overflow: visible;
+    padding: 0;
   }
   .room-tab { flex: 0 0 auto; padding: 9px 14px; font-size: 13.5px; border-width: 2.5px; }
   .room-tab .tab-icon { font-size: 15px; }
@@ -3355,7 +3371,8 @@ img { max-width: 100%; }
   .people-btn { padding: 3px 7px 3px 3px; }
   .avatar-stack .avatar:nth-child(n + 4) { display: none; }
   .people-count { font-size: 10px; }
-  .room-main { padding: 12px 11px 26px; }
+  .room-main { padding: 12px 11px 88px; }
+  .room-tabs { right: 12px; bottom: 14px; }
   .room-tab { padding: 8px 12px; font-size: 12.5px; gap: 6px; }
   .room-tab .tab-count { min-width: 20px; padding: 1px 6px; font-size: 9.5px; }
   .panel-head { padding: 0 0 11px; }
