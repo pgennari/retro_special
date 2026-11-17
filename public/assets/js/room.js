@@ -708,14 +708,18 @@
     refs.phase.textContent = PHASE_LABELS[d.phase] || d.phase;
     refs.phase.setAttribute('data-phase', d.phase);
 
+    var extra = '';
     if (current.isOrganizer && d.questionAvailable && d.phase !== 'setup') {
-      refs.extra.innerHTML = '<button class="eye-btn' + (d.questionVisible ? '' : ' is-hidden') + '" type="button" ' +
+      extra += '<button class="eye-btn' + (d.questionVisible ? '' : ' is-hidden') + '" type="button" ' +
         'data-action="toggle-question" title="' + (d.questionVisible ? 'Ocultar pergunta' : 'Mostrar pergunta') + '">' +
         (d.questionVisible ? '👁' : '🙈') +
         '</button>';
-    } else {
-      refs.extra.innerHTML = '';
     }
+    if (current.isOrganizer && d.phase === 'voting') {
+      extra += '<button class="btn btn-secondary btn-small end-voting-head" type="button" data-action="end-voting" ' +
+        (d.canEndVoting ? '' : 'disabled title="Todos precisam terminar os palpites"') + '>Encerrar votação 🔒</button>';
+    }
+    refs.extra.innerHTML = extra;
 
     var body = stepsHTML(d.phase);
     if (d.phase === 'setup') body += setupHTML(d);
@@ -1036,12 +1040,8 @@
       (pending.length ? '<br><span class="warn">Faltam: ' + esc(pending.map(function (item) { return item.name; }).join(', ')) + '</span>' : '') +
       '</div>';
 
-    var afterVote;
-    if (current.isOrganizer) {
-      afterVote = '<button class="btn btn-secondary" type="button" data-action="end-voting" ' + (d.canEndVoting ? '' : 'disabled title="Todos precisam terminar os palpites"') + '>Encerrar votação 🔒</button>';
-    } else {
-      afterVote = '<span class="helper">O organizador encerra quando todos terminarem.</span>';
-    }
+    // O botão do organizador fica no cabeçalho, ao lado do chip de fase.
+    var afterVote = current.isOrganizer ? '' : '<span class="helper">O organizador encerra quando todos terminarem.</span>';
 
     html += '<div class="voting-footer">' + voteStatus + afterVote + '</div>';
     html += '<div class="vote-legend"><span class="mini-avatar-dot"></span> a bolinha pequena em cada avatar mostra quem fez aquele palpite · cards em verde já têm o seu palpite.</div>';

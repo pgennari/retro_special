@@ -2004,6 +2004,8 @@ img { max-width: 100%; }
 .eye-btn:hover { background: var(--yellow-soft); transform: translate(-1px, -1px); }
 .eye-btn.is-hidden { background: var(--yellow-soft); }
 
+.end-voting-head { white-space: nowrap; }
+
 /* passos ----------------------------------------------------------------- */
 
 .dyn-steps {
