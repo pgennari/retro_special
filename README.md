@@ -149,6 +149,7 @@ firestore.rules           bloqueia acesso direto do navegador
 ## Notas
 
 - As salas são persistidas no Firestore e expiram após 6 horas sem atividade. O Render pode dormir sem perder os dados; ao acordar, a sala é carregada sob demanda.
+- O painel ADMIN lista todas as salas ainda persistidas, inclusive as expiradas ou gravadas com um formato antigo; abrir uma delas no admin não apaga o documento.
 - As fotos ficam em subdocumentos (`rooms/{code}/avatars/{userId}`) para não estourar o limite de 1 MiB do documento principal.
 - O conteúdo dos cards é enviado ao navegador antes da revelação — o desfoque é visual, como pede a experiência. A autoria dos cards **não** é enviada ao navegador; a das respostas da dinâmica só aparece quando o organizador revela cada uma.
 - Fotos são reduzidas para 192 × 192 JPEG no cliente antes de serem enviadas.

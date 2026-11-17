@@ -27,8 +27,10 @@ const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
 const ADMIN_KEY = String(process.env.ADMIN_KEY || '').trim();
 
 const rooms = new Map(); // code -> room
+const adminRooms = new Map(); // code -> sala aberta pela administração (não expira)
 const streams = new Map(); // code -> Map<userId, Set<res>>
 const loading = new Map(); // code -> Promise<room|null>
+const adminLoading = new Map(); // code -> Promise<room|null>
 
 // Origens oficiais do projeto. Continuam liberadas mesmo que a variável
 // ALLOWED_ORIGINS do Render fique desatualizada em relação a este arquivo.
@@ -192,16 +194,78 @@ function isRoomShapeValid(room) {
   );
 }
 
+/**
+ * A administração precisa abrir qualquer documento salvo, mesmo antigo ou
+ * gravado por uma versão anterior. Completa os campos ausentes sem apagar
+ * nada do Firestore e sem permitir que a sala entre no cache de jogo.
+ */
+function normalizeAdminRoom(room, code) {
+  const now = Date.now();
+  const source = room && typeof room === 'object' ? room : {};
+  const columns = source.columns && typeof source.columns === 'object' ? source.columns : {};
+  const dynamics = source.dynamics && typeof source.dynamics === 'object' ? source.dynamics : {};
+
+  function normalizeColumn(column, key) {
+    const value = column && typeof column === 'object' ? column : {};
+    return Object.assign({}, value, {
+      key: key,
+      revealed: !!value.revealed,
+      cards: Array.isArray(value.cards) ? value.cards : []
+    });
+  }
+
+  return Object.assign({}, source, {
+    code: code,
+    createdAt: Number(source.createdAt) || Number(source.updatedAt) || now,
+    updatedAt: Number(source.updatedAt) || Number(source.createdAt) || now,
+    version: Number(source.version) || 1,
+    organizerId: typeof source.organizerId === 'string' ? source.organizerId : '',
+    colorSeq: Number(source.colorSeq) || 1,
+    // Sala vinda do banco não tem stream aberto.
+    users: Array.isArray(source.users)
+      ? source.users.map((user) => Object.assign({}, user, { connected: false }))
+      : [],
+    columns: {
+      acertos: normalizeColumn(columns.acertos, 'acertos'),
+      melhorias: normalizeColumn(columns.melhorias, 'melhorias')
+    },
+    dynamics: Object.assign({}, dynamics, {
+      phase: typeof dynamics.phase === 'string' ? dynamics.phase : 'setup',
+      round: Number(dynamics.round) || 1,
+      question: typeof dynamics.question === 'string' ? dynamics.question : '',
+      questionVisible: !!dynamics.questionVisible,
+      participantIds: Array.isArray(dynamics.participantIds) ? dynamics.participantIds : [],
+      answers: Array.isArray(dynamics.answers) ? dynamics.answers : [],
+      order: Array.isArray(dynamics.order) ? dynamics.order : [],
+      assignments: dynamics.assignments && typeof dynamics.assignments === 'object' ? dynamics.assignments : {},
+      revealed: Array.isArray(dynamics.revealed) ? dynamics.revealed : [],
+      shuffleAt: Number(dynamics.shuffleAt) || 0,
+      startedAt: Number(dynamics.startedAt) || 0,
+      closedAt: Number(dynamics.closedAt) || 0
+    })
+  });
+}
+
 function storeError(error) {
   console.error('[store]', error && error.stack ? error.stack : error);
   return Object.assign(new Error('Não consegui acessar os dados da sala. Tente novamente.'), { status: 503 });
 }
 
-async function getRoom(rawCode) {
+async function getRoom(rawCode, options) {
+  options = options || {};
   const code = Engine.normalizeCode(rawCode);
   if (!code) return null;
   if (rooms.has(code)) return rooms.get(code);
-  if (loading.has(code)) return loading.get(code);
+
+  if (options.admin) {
+    if (adminRooms.has(code)) return adminRooms.get(code);
+    if (adminLoading.has(code)) return adminLoading.get(code);
+  } else if (loading.has(code)) {
+    return loading.get(code);
+  }
+
+  const cache = options.admin ? adminRooms : rooms;
+  const pendingByCode = options.admin ? adminLoading : loading;
 
   const pending = (async () => {
     let room;
@@ -212,31 +276,42 @@ async function getRoom(rawCode) {
     }
     if (!room) return null;
 
-    if (!isRoomShapeValid(room)) {
-      try { await store.deleteRoom(code); } catch (error) { /* noop */ }
-      return null;
+    if (options.admin) {
+      // Nunca apaga um documento só porque ele é antigo ou veio de uma
+      // versão antiga do esquema. A sala fica só no cache da administração.
+      room = normalizeAdminRoom(room, code);
+    } else {
+      if (!isRoomShapeValid(room)) {
+        // Se o admin está com essa sala aberta, o documento precisa sobreviver.
+        if (!adminRooms.has(code)) {
+          try { await store.deleteRoom(code); } catch (error) { /* noop */ }
+        }
+        return null;
+      }
+
+      room.code = code;
+      room.updatedAt = Number(room.updatedAt) || Number(room.createdAt) || Date.now();
+      // Ao carregar do banco não há SSE aberto: todos voltam como offline
+      // e cada pessoa fica online de novo quando abrir o stream.
+      room.users.forEach((user) => { user.connected = false; });
+
+      if (Date.now() - room.updatedAt > ROOM_TTL_MS) {
+        if (!adminRooms.has(code)) {
+          try { await store.deleteRoom(code); } catch (error) { /* noop */ }
+        }
+        return null;
+      }
     }
 
-    room.code = code;
-    room.updatedAt = Number(room.updatedAt) || Number(room.createdAt) || Date.now();
-    // Ao carregar do banco não há SSE aberto: todos voltam como offline
-    // e cada pessoa fica online de novo quando abrir o stream.
-    room.users.forEach((user) => { user.connected = false; });
-
-    if (Date.now() - room.updatedAt > ROOM_TTL_MS) {
-      try { await store.deleteRoom(code); } catch (error) { /* noop */ }
-      return null;
-    }
-
-    rooms.set(code, room);
+    cache.set(code, room);
     return room;
   })();
 
-  loading.set(code, pending);
+  pendingByCode.set(code, pending);
   try {
     return await pending;
   } finally {
-    if (loading.get(code) === pending) loading.delete(code);
+    if (pendingByCode.get(code) === pending) pendingByCode.delete(code);
   }
 }
 
@@ -370,24 +445,24 @@ function roomSummary(room) {
  * sempre vence, porque é o estado mais recente.
  */
 async function listAllRooms() {
-  const cutoff = Date.now() - ROOM_TTL_MS;
   const byCode = new Map();
   let warning = null;
 
   try {
     const stored = await store.listRooms();
     stored.forEach((room) => {
-      if (!room || !room.code || !isRoomShapeValid(room)) return;
-      if (room.updatedAt && room.updatedAt < cutoff) return;
-      // uma sala só no banco não tem SSE aberto: ninguém está online de fato
-      const users = (room.users || []).map((user) => Object.assign({}, user, { connected: false }));
-      byCode.set(room.code, Object.assign({}, room, { users }));
+      if (!room || !room.code) return;
+      // Sem filtro de validade: a administração mostra tudo que está salvo.
+      byCode.set(room.code, normalizeAdminRoom(room, room.code));
     });
   } catch (error) {
     warning = 'Não consegui listar as salas do Firestore: ' + (error && error.message ? error.message : 'erro desconhecido');
     console.error('[admin]', warning);
   }
 
+  // O cache da administração vem depois do banco para refletir edições feitas
+  // no painel; o cache de jogo vence por último porque tem a presença ao vivo.
+  adminRooms.forEach((room, code) => byCode.set(code, room));
   rooms.forEach((room, code) => byCode.set(code, room));
 
   return {
@@ -477,14 +552,14 @@ async function handleAdmin(req, res, url, segments) {
 
   // GET /api/admin/rooms/:code
   if (req.method === 'GET' && segments.length === 4) {
-    const room = await getRoom(code);
+    const room = await getRoom(code, { admin: true });
     if (!room) return sendError(res, 404, 'Sala não encontrada.');
     return sendJson(res, 200, { ok: true, room: adminState(room) });
   }
 
   // POST /api/admin/rooms/:code/users/:userId/remove
   if (req.method === 'POST' && segments.length === 7 && segments[4] === 'users' && segments[6] === 'remove') {
-    const room = await getRoom(code);
+    const room = await getRoom(code, { admin: true });
     if (!room) return sendError(res, 404, 'Sala não encontrada.');
     const userId = segments[5];
     const result = Engine.adminRemoveUser(room, userId);
@@ -497,7 +572,7 @@ async function handleAdmin(req, res, url, segments) {
   // POST /api/admin/rooms/:code/cards
   if (req.method === 'POST' && segments.length === 5 && segments[4] === 'cards') {
     const body = await readJson(req);
-    const room = await getRoom(code);
+    const room = await getRoom(code, { admin: true });
     if (!room) return sendError(res, 404, 'Sala não encontrada.');
     const result = Engine.adminAddCard(room, String(body.column || ''), body);
     if (!result.ok) return sendError(res, 400, result.error);
@@ -511,7 +586,7 @@ async function handleAdmin(req, res, url, segments) {
     const cardId = segments[5];
     const action = segments[6];
     const body = await readJson(req);
-    const room = await getRoom(code);
+    const room = await getRoom(code, { admin: true });
     if (!room) return sendError(res, 404, 'Sala não encontrada.');
     const result = action === 'edit'
       ? Engine.adminEditCard(room, String(body.column || ''), cardId, body.text)
@@ -525,7 +600,7 @@ async function handleAdmin(req, res, url, segments) {
 
   // POST /api/admin/rooms/:code/delete
   if (req.method === 'POST' && segments.length === 5 && segments[4] === 'delete') {
-    const room = await getRoom(code);
+    const room = await getRoom(code, { admin: true });
     if (!room) return sendError(res, 404, 'Sala não encontrada.');
     try {
       await store.deleteRoom(code);
@@ -533,7 +608,9 @@ async function handleAdmin(req, res, url, segments) {
       throw storeError(error);
     }
     rooms.delete(code);
+    adminRooms.delete(code);
     loading.delete(code);
+    adminLoading.delete(code);
     closeRoomStreams(code, 'Esta sala foi encerrada pelo administrador.');
     return sendJson(res, 200, { ok: true, deleted: true });
   }

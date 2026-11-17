@@ -1,15 +1,20 @@
 /*
  * Teste de integração da administração: sobe o servidor em memória com
- * ADMIN_KEY e exercita as rotas protegidas com fetch nativo do Node 18+.
+ * ADMIN_KEY e um Firestore falso, e exercita as rotas protegidas com fetch
+ * nativo do Node 18+.
  */
 'use strict';
 
 const { spawn } = require('child_process');
+const crypto = require('crypto');
+const http = require('http');
 const net = require('net');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const ADMIN_KEY = 'test-admin-key-123';
+const Engine = require('../public/assets/js/engine.js');
+const firestore = require('../lib/firestore.js');
 
 function assert(value, message) {
   if (!value) throw new Error(message || 'esperava um valor verdadeiro');
@@ -40,16 +45,149 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function listen(server) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+  });
+}
+
+function sendJson(res, status, data) {
+  const body = JSON.stringify(data);
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
+  res.end(body);
+}
+
+async function readJson(req) {
+  let text = '';
+  for await (const chunk of req) text += chunk.toString();
+  return text ? JSON.parse(text) : {};
+}
+
+async function closeServer(server) {
+  if (!server || !server.listening) return;
+  if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
+}
+
+/** Firestore REST mínimo, só com o que o cliente do projeto usa. */
+async function startFakeFirestore() {
+  const docs = new Map();
+  const documentName = (key) => 'projects/teste/databases/(default)/documents/' + key;
+
+  const tokenServer = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/token') {
+      return sendJson(res, 200, { access_token: 'token-de-teste', expires_in: 3600 });
+    }
+    return sendJson(res, 404, { error: 'rota não encontrada' });
+  });
+
+  const firestoreServer = http.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      const marker = '/documents/';
+      const at = url.pathname.indexOf(marker);
+      const parts = at === -1 ? [] : url.pathname.slice(at + marker.length).split('/').filter(Boolean);
+      const key = parts.join('/');
+
+      if (req.method === 'GET' && (parts.length === 1 || (parts.length === 3 && parts[2] === 'avatars'))) {
+        const prefix = key + '/';
+        const documents = [];
+        for (const [docKey, fields] of docs.entries()) {
+          if (!docKey.startsWith(prefix)) continue;
+          if (docKey.split('/').length !== parts.length + 1) continue;
+          documents.push({ name: documentName(docKey), fields });
+        }
+        return sendJson(res, 200, { documents });
+      }
+
+      if (req.method === 'GET') {
+        if (!docs.has(key)) return sendJson(res, 404, { error: { message: 'não encontrado' } });
+        return sendJson(res, 200, { name: documentName(key), fields: docs.get(key) });
+      }
+
+      if (req.method === 'POST') {
+        const id = url.searchParams.get('documentId');
+        const docKey = parts.concat(id).join('/');
+        if (docs.has(docKey)) return sendJson(res, 409, { error: { message: 'já existe' } });
+        const body = await readJson(req);
+        docs.set(docKey, body.fields || {});
+        return sendJson(res, 200, { name: documentName(docKey), fields: docs.get(docKey) });
+      }
+
+      if (req.method === 'PATCH') {
+        const body = await readJson(req);
+        docs.set(key, body.fields || {});
+        return sendJson(res, 200, { name: documentName(key), fields: docs.get(key) });
+      }
+
+      if (req.method === 'DELETE') {
+        docs.delete(key);
+        return sendJson(res, 200, {});
+      }
+
+      return sendJson(res, 405, { error: { message: 'método não permitido' } });
+    } catch (error) {
+      return sendJson(res, 500, { error: { message: error.message } });
+    }
+  });
+
+  const tokenPort = await listen(tokenServer);
+  const firestorePort = await listen(firestoreServer);
+
+  return {
+    docs,
+    tokenUrl: 'http://127.0.0.1:' + tokenPort + '/token',
+    baseUrl: 'http://127.0.0.1:' + firestorePort + '/v1/projects/teste/databases/(default)/documents',
+    async close() {
+      await Promise.all([closeServer(tokenServer), closeServer(firestoreServer)]);
+    }
+  };
+}
+
 async function main() {
   const port = await freePort();
   const base = 'http://127.0.0.1:' + port;
+  const fake = await startFakeFirestore();
+
+  const keyPair = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+  });
+
+  // Duas salas que existem no Firestore, mas ficariam escondidas pelo filtro
+  // de 6 horas / validação rígida de shape do painel.
+  const oldAt = Date.now() - 10 * 60 * 60 * 1000;
+  const oldRoom = Engine.createRoom(identity('user_old', 'Ana Antiga'), 'OLD123');
+  oldRoom.createdAt = oldAt;
+  oldRoom.updatedAt = oldAt;
+  fake.docs.set('rooms/OLD123', firestore._internals.encodeFields(oldRoom));
+
+  const legacyRoom = {
+    code: 'LEGACY',
+    createdAt: oldAt,
+    updatedAt: oldAt,
+    users: [],
+    columns: {}
+  };
+  fake.docs.set('rooms/LEGACY', firestore._internals.encodeFields(legacyRoom));
+
   const env = Object.assign({}, process.env, {
     PORT: String(port),
     HOST: '127.0.0.1',
     ADMIN_KEY,
-    FIREBASE_SERVICE_ACCOUNT: '',
+    FIREBASE_SERVICE_ACCOUNT: JSON.stringify({
+      type: 'service_account',
+      project_id: 'teste',
+      client_email: 'teste@teste.iam.gserviceaccount.com',
+      private_key: keyPair.privateKey,
+      token_uri: fake.tokenUrl
+    }),
+    FIREBASE_PROJECT_ID: 'teste',
+    FIREBASE_BASE_URL: fake.baseUrl,
+    FIREBASE_TOKEN_URI: fake.tokenUrl,
     GOOGLE_APPLICATION_CREDENTIALS: '',
-    FIREBASE_PROJECT_ID: '',
     ALLOWED_ORIGINS: ''
   });
 
@@ -104,6 +242,18 @@ async function main() {
     const list = await call('/api/admin/rooms', { key: ADMIN_KEY });
     equal(list.status, 200, 'listagem autenticada');
     assert(list.data.rooms.some((room) => room.code === code), 'a sala criada aparece na listagem');
+    assert(list.data.rooms.some((room) => room.code === 'OLD123'), 'sala antiga do Firestore aparece na listagem');
+    assert(list.data.rooms.some((room) => room.code === 'LEGACY'), 'sala com shape incompleta aparece na listagem');
+
+    const oldDetail = await call('/api/admin/rooms/OLD123', { key: ADMIN_KEY });
+    equal(oldDetail.status, 200, 'detalhe da sala antiga');
+    equal(oldDetail.data.room.users.length, 1, 'usuários da sala antiga');
+    assert(fake.docs.has('rooms/OLD123'), 'abrir sala antiga no admin não apaga do Firestore');
+
+    const legacyDetail = await call('/api/admin/rooms/LEGACY', { key: ADMIN_KEY });
+    equal(legacyDetail.status, 200, 'detalhe da sala incompleta');
+    equal(legacyDetail.data.room.users.length, 0, 'sala incompleta normalizada');
+    assert(fake.docs.has('rooms/LEGACY'), 'abrir sala incompleta no admin não apaga do Firestore');
 
     const joined = await call('/api/rooms/' + code + '/join', {
       method: 'POST',
@@ -176,6 +326,7 @@ async function main() {
         resolve();
       });
     });
+    await fake.close();
   }
 }
 
