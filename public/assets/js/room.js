@@ -1048,6 +1048,29 @@
     return html;
   }
 
+  // A resposta recém-revelada sobe para o topo; a revelada anteriormente
+  // desce para o fim da lista, mantendo as ainda ocultas no meio.
+  function orderedRevealAnswers(d) {
+    var all = d.answers || [];
+    var byId = {};
+    all.forEach(function (answer) { byId[answer.id] = answer; });
+    var order = d.order || all.map(function (answer) { return answer.id; });
+    var revealed = d.revealed || [];
+    var revealedSet = {};
+    revealed.forEach(function (id) { revealedSet[id] = true; });
+
+    var hidden = order.filter(function (id) {
+      return byId[id] && !revealedSet[id];
+    }).map(function (id) { return byId[id]; });
+
+    var older = revealed.slice(0, -1).filter(function (id) {
+      return byId[id];
+    }).map(function (id) { return byId[id]; });
+
+    var latest = revealed.length ? revealed[revealed.length - 1] : null;
+    return (latest && byId[latest] ? [byId[latest]] : []).concat(hidden, older);
+  }
+
   function revealHTML(d) {
     var html = questionBlockHTML(d);
 
@@ -1080,8 +1103,11 @@
       '</div>' +
       '</div>';
 
-    var answers = d.answers || [];
-    var answerCards = answers.map(function (answer, index) {
+    var answers = orderedRevealAnswers(d);
+    var revealOrder = d.order || (d.answers || []).map(function (answer) { return answer.id; });
+    var answerCards = answers.map(function (answer) {
+      var originalIndex = revealOrder.indexOf(answer.id);
+      var answerNumber = originalIndex === -1 ? 1 : originalIndex + 1;
       var chips = assignmentChipsHTML(answer.id, {
         canEdit: false,
         revealedAuthorId: answer.revealed && answer.author ? answer.author.id : null
@@ -1114,7 +1140,7 @@
       }
 
       return '<article class="reveal-card' + (answer.revealed ? ' is-revealed' : '') + '" data-answer-id="' + esc(answer.id) + '">' +
-        '<span class="vote-index">RESPOSTA ' + String(index + 1).padStart(2, '0') + '</span>' +
+        '<span class="vote-index">RESPOSTA ' + String(answerNumber).padStart(2, '0') + '</span>' +
         '<p class="answer-text">' + esc(answer.text) + '</p>' +
         '<div class="dropzone has-chips">' + (chips || '<span class="drop-hint">ninguém apostou aqui</span>') + '</div>' +
         authorBlock +

@@ -2659,7 +2659,7 @@ img { max-width: 100%; }
 
 .reveal-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
   gap: 13px;
   min-height: 0;
 }
@@ -2684,7 +2684,7 @@ img { max-width: 100%; }
 
 .reveal-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
   gap: 13px;
 }
 
