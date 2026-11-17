@@ -2837,8 +2837,9 @@ img { max-width: 100%; }
   flex: 1;
   min-width: 0;
   color: var(--muted);
-  /* Mesma tipografia dos nomes nos chips de voto. */
+  /* Mesma tipografia e tamanho dos nomes nos chips de voto. */
   font-family: var(--font);
+  font-size: 17.6px;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
