@@ -938,6 +938,7 @@
     if (!current) return '';
     options = options || {};
     var canEdit = !!options.canEdit;
+    var showVoter = !!options.showVoter;
     var revealedAuthorId = options.revealedAuthorId || null;
     var d = current.dynamics;
     var assignments = d.assignments || {};
@@ -969,11 +970,12 @@
       }
       var title = row.voter.name + ' acha que foi ' + row.target.name +
         (editable ? ' · clique para remover' : '');
-      return '<button class="assignment' + (editable ? ' mine' : '') + extra + '" type="button" ' +
+      return '<button class="assignment' + (editable ? ' mine' : '') + extra + (showVoter ? ' has-voter' : '') + '" type="button" ' +
         'data-voter="' + esc(row.voter.id) + '" data-target="' + esc(row.target.id) + '" data-answer="' + esc(answerId) + '" ' +
         'title="' + esc(title) + '" ' + (editable ? '' : 'disabled') + '>' +
         ui.avatarHTML(row.target.avatar, { size: 28 }) +
         '<span class="assignment-name">' + esc(row.target.name) + '</span>' +
+        (showVoter ? '<span class="voter-badge">' + esc(row.voter.name) + '</span>' : '') +
         (editable ? '<span class="remove-x" aria-hidden="true">×</span>' : '') +
         '</button>';
     }).join('');
@@ -1110,6 +1112,7 @@
       var answerNumber = originalIndex === -1 ? 1 : originalIndex + 1;
       var chips = assignmentChipsHTML(answer.id, {
         canEdit: false,
+        showVoter: true,
         revealedAuthorId: answer.revealed && answer.author ? answer.author.id : null
       });
       var authorBlock;
