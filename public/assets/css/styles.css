@@ -2471,6 +2471,8 @@ img { max-width: 100%; }
   align-items: center;
   gap: 7px;
   margin-top: 10px;
+  /* Reserva o espaço da bandeja fixa de pessoas no fim da votação. */
+  padding-bottom: 124px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 600;
@@ -2485,7 +2487,12 @@ img { max-width: 100%; }
 }
 
 .people-tray {
-  position: sticky;
+  /* Fixo na viewport (e não sticky): depois de maximizar a janela a bandeja
+     ficava com a metade de baixo fora da tela até um resize forçar o
+     reposicionamento do sticky. */
+  position: fixed;
+  left: 24px;
+  right: 24px;
   bottom: 12px;
   z-index: 25;
   display: flex;
@@ -2496,9 +2503,8 @@ img { max-width: 100%; }
   padding: 11px 13px;
   border: 3px solid var(--border);
   border-radius: 17px;
-  background: rgba(255, 253, 245, 0.97);
+  background: var(--surface);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
 }
 
 .tray-label {
@@ -3280,7 +3286,13 @@ img { max-width: 100%; }
 
   .vote-grid { grid-template-columns: 1fr; }
   .reveal-grid { grid-template-columns: 1fr; }
-  .people-tray { position: static; }
+  .people-tray {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+  }
+  .vote-legend { padding-bottom: 0; }
   .voting-intro { align-items: flex-start; flex-direction: column; }
   .reveal-head { flex-direction: column; align-items: flex-start; }
 

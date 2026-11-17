@@ -610,6 +610,24 @@ async function handleApi(req, res, url) {
     });
   }
 
+  // GET /api/rooms/:code/state?userId=... — fallback para redes que bloqueiam/bufferizam SSE.
+  if (req.method === 'GET' && segments.length === 4 && segments[1] === 'rooms' && segments[3] === 'state') {
+    const code = Engine.normalizeCode(segments[2]);
+    const userId = url.searchParams.get('userId') || '';
+    const room = await getRoom(code);
+    if (!room) return sendError(res, 404, 'Sala não encontrada.');
+    if (!Engine.findUser(room, userId)) return sendError(res, 403, 'Você não está nesta sala.');
+
+    // Sem SSE aberto, a presença também precisa ser renovada por aqui.
+    const becameConnected = Engine.setConnected(room, userId, true);
+    if (becameConnected) {
+      store.saveRoom(room);
+      broadcast(code, { kind: 'presence', userId, connected: true });
+    }
+
+    return sendJson(res, 200, { ok: true, state: Engine.getState(room, userId) });
+  }
+
   // GET /api/rooms/:code/stream?userId=...
   if (req.method === 'GET' && segments.length === 4 && segments[1] === 'rooms' && segments[3] === 'stream') {
     const code = Engine.normalizeCode(segments[2]);

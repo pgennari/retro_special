@@ -488,13 +488,19 @@
   function setStatus(nextStatus) {
     status = nextStatus;
     if (!refs.livePill) return;
-    var online = status === 'online';
+    var polling = status === 'polling';
+    var online = status === 'online' || polling;
     refs.livePill.classList.toggle('is-offline', !online);
-    refs.liveText.textContent = online ? 'ao vivo' : (status === 'connecting' ? 'conectando' : 'reconectando');
+    if (status === 'online') refs.liveText.textContent = 'ao vivo';
+    else if (polling) refs.liveText.textContent = 'ao vivo (compatível)';
+    else if (status === 'connecting') refs.liveText.textContent = 'conectando';
+    else refs.liveText.textContent = 'reconectando';
     refs.offlineBanner.hidden = online;
     refs.offlineText.textContent = status === 'connecting'
       ? 'Conectando à sala…'
-      : 'Conexão caiu. Tentando reconectar…';
+      : polling
+        ? 'Modo compatível: a sala atualiza a cada poucos segundos.'
+        : 'Conexão caiu. Tentando reconectar…';
   }
 
   /* ------------------------------------------------------------------ *

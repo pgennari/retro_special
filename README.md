@@ -88,6 +88,8 @@ O app é dividido em três partes, sem sair do plano gratuito do Firebase:
 
 O Firebase Hosting não faz proxy para fora do Firebase, então o navegador chama a API do Render diretamente. O backend libera CORS apenas para as origens configuradas em `ALLOWED_ORIGINS`.
 
+O SSE é o canal preferencial, mas redes protegidas podem bloquear ou bufferizar o `EventSource` a ponto de ele nunca receber os headers. Se isso acontecer, o front-end detecta a ausência de `onopen` em 6 segundos e passa a consultar `GET /api/rooms/:code/state` a cada 2,5 segundos (indicado como "ao vivo (compatível)" na sala), voltando ao SSE automaticamente assim que ele conseguir conectar.
+
 ### 1. Firestore
 
 1. No console do Firebase, abra **Firestore Database** e crie o banco em modo **Native**.

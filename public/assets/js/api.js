@@ -75,52 +75,166 @@
     return { state: data.state, event: data.event || null };
   }
 
+  // SSE é o canal preferencial. Em redes protegidas, porém, proxies podem
+  // segurar a resposta do EventSource para sempre (sem onopen e sem onerror).
+  // Nesse caso caímos para polling de um endpoint REST, que usa o mesmo canal
+  // das chamadas de criar/entrar/ação e continua mantendo a sala atualizada.
+  var SSE_OPEN_TIMEOUT = 6000;
+  var SSE_MAX_ERRORS = 3;
+  var SSE_RETRY_DELAY = 30000;
+  var POLL_INTERVAL = 2500;
+
   function realConnect(code, userId, handlers) {
-    var source = new EventSource(apiURL('/api/rooms/' + encodeURIComponent(code) + '/stream?userId=' + encodeURIComponent(userId)));
     var closed = false;
+    var source = null;
+    var openTimer = null;
+    var retryTimer = null;
+    var pollTimer = null;
+    var polling = false;
+    var pollingBusy = false;
     var errors = 0;
+    var lastStatus = '';
+    var streamUrl = apiURL('/api/rooms/' + encodeURIComponent(code) + '/stream?userId=' + encodeURIComponent(userId));
+    var stateUrl = apiURL('/api/rooms/' + encodeURIComponent(code) + '/state?userId=' + encodeURIComponent(userId));
+    var roomUrl = apiURL('/api/rooms/' + encodeURIComponent(code));
 
-    source.onopen = function () {
-      if (closed) return;
-      errors = 0;
-      if (handlers.onStatus) handlers.onStatus('online');
-    };
+    function updateStatus(next) {
+      if (closed || next === lastStatus) return;
+      lastStatus = next;
+      if (handlers.onStatus) handlers.onStatus(next);
+    }
 
-    source.onerror = function () {
-      if (closed) return;
-      errors += 1;
-      if (handlers.onStatus) handlers.onStatus('reconnecting');
-      if (errors === 4) {
-        fetch(apiURL('/api/rooms/' + encodeURIComponent(code))).then(function (response) {
-          if (closed) return;
-          if (response.status === 404) {
-            closed = true;
-            source.close();
-            if (handlers.onKicked) handlers.onKicked('Esta sala não existe mais.');
-          }
-        }).catch(function () { /* rede indisponível */ });
+    function clearOpenTimer() {
+      if (openTimer) { clearTimeout(openTimer); openTimer = null; }
+    }
+
+    function clearRetryTimer() {
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    }
+
+    function stopSse() {
+      clearOpenTimer();
+      if (source) {
+        try { source.close(); } catch (error) { /* noop */ }
+        source = null;
       }
-    };
+    }
 
-    source.onmessage = function (message) {
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      polling = false;
+    }
+
+    function finish(message) {
       if (closed) return;
-      var payload;
-      try { payload = JSON.parse(message.data); } catch (error) { return; }
-      if (!payload) return;
-      if (payload.type === 'state') {
-        if (handlers.onState) handlers.onState(payload.state);
-        if (payload.event && handlers.onEvent) handlers.onEvent(payload.event);
-      } else if (payload.type === 'kicked') {
-        closed = true;
-        source.close();
-        if (handlers.onKicked) handlers.onKicked(payload.message || 'Você não está mais nesta sala.');
+      closed = true;
+      clearOpenTimer();
+      clearRetryTimer();
+      stopPolling();
+      stopSse();
+      if (handlers.onKicked) handlers.onKicked(message);
+    }
+
+    function pollNow() {
+      if (closed || !polling || pollingBusy) return;
+      pollingBusy = true;
+      fetch(stateUrl, { cache: 'no-store' }).then(function (response) {
+        if (closed) return null;
+        if (response.status === 404) throw apiError('Esta sala não existe mais.', 404);
+        if (response.status === 403) throw apiError('Você não está mais nesta sala.', 403);
+        if (!response.ok) throw apiError('', response.status);
+        return response.json();
+      }).then(function (data) {
+        if (closed || !data || !data.state) return;
+        if (handlers.onState) handlers.onState(data.state);
+      }).catch(function (error) {
+        if (closed) return;
+        if (error && (error.status === 404 || error.status === 403)) finish(error.message);
+      }).then(function () { pollingBusy = false; });
+    }
+
+    function startPolling() {
+      if (closed || polling) return;
+      polling = true;
+      updateStatus('polling');
+      pollNow();
+      pollTimer = setInterval(pollNow, POLL_INTERVAL);
+    }
+
+    function checkRoomGone() {
+      fetch(roomUrl, { cache: 'no-store' }).then(function (response) {
+        if (!closed && response.status === 404) finish('Esta sala não existe mais.');
+      }).catch(function () { /* rede indisponível */ });
+    }
+
+    function scheduleSseRetry() {
+      clearRetryTimer();
+      retryTimer = setTimeout(startSse, SSE_RETRY_DELAY);
+    }
+
+    function startSse() {
+      if (closed || source) return;
+      clearRetryTimer();
+      try {
+        source = new EventSource(streamUrl);
+      } catch (error) {
+        startPolling();
+        scheduleSseRetry();
+        return;
       }
-    };
+
+      openTimer = setTimeout(function () {
+        if (closed || !source) return;
+        // Nenhum header recebido a tempo: o proxy provavelmente bloqueou ou
+        // bufferizou o fluxo. Mantemos o polling e tentamos o SSE depois.
+        startPolling();
+        stopSse();
+        scheduleSseRetry();
+      }, SSE_OPEN_TIMEOUT);
+
+      source.onopen = function () {
+        if (closed) return;
+        clearOpenTimer();
+        errors = 0;
+        stopPolling();
+        updateStatus('online');
+      };
+
+      source.onerror = function () {
+        if (closed) return;
+        clearOpenTimer();
+        errors += 1;
+        startPolling();
+        if (errors >= SSE_MAX_ERRORS) {
+          stopSse();
+          scheduleSseRetry();
+        }
+        if (errors === 4) checkRoomGone();
+      };
+
+      source.onmessage = function (message) {
+        if (closed) return;
+        var payload;
+        try { payload = JSON.parse(message.data); } catch (error) { return; }
+        if (!payload) return;
+        if (payload.type === 'state') {
+          if (handlers.onState) handlers.onState(payload.state);
+          if (payload.event && handlers.onEvent) handlers.onEvent(payload.event);
+        } else if (payload.type === 'kicked') {
+          finish(payload.message || 'Você não está mais nesta sala.');
+        }
+      };
+    }
+
+    startSse();
 
     return {
       close: function () {
         closed = true;
-        try { source.close(); } catch (error) { /* noop */ }
+        clearOpenTimer();
+        clearRetryTimer();
+        stopPolling();
+        stopSse();
       }
     };
   }
