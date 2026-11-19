@@ -336,6 +336,9 @@
       case 'card:add': {
         column = getColumn(room, payload.column);
         if (!column) return { ok: false, error: 'Bloco inválido.' };
+        if (column.revealed) {
+          return { ok: false, error: 'Este bloco já foi revelado. Não é possível adicionar novos cards.' };
+        }
         var text = cleanBlock(payload.text, 600);
         if (!text) return { ok: false, error: 'Escreva alguma coisa antes de adicionar.' };
         if (column.cards.length >= MAX_CARDS) {

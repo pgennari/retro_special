@@ -1633,6 +1633,15 @@ img { max-width: 100%; }
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
+.composer.is-closed .composer-input {
+  background: var(--surface-2);
+  color: var(--muted);
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.composer.is-closed .composer-input::placeholder { color: var(--muted-2); }
+
 .composer-foot {
   grid-column: 2;
   grid-row: 1;

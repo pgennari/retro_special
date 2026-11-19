@@ -75,6 +75,19 @@
       assert.equal(liked.acertos.cards[0].likedByMe, true);
     });
 
+    test('revelar um bloco bloqueia novos cards', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      ['acertos', 'melhorias'].forEach(function (key) {
+        var add = engine.applyAction(room, 'user_ana', 'card:add', { column: key, text: 'Antes da revelação' });
+        assert.ok(add.ok);
+        assert.ok(engine.applyAction(room, 'user_ana', 'column:reveal', { column: key }).ok);
+
+        var blocked = engine.applyAction(room, 'user_ana', 'card:add', { column: key, text: 'Depois da revelação' });
+        assert.ok(!blocked.ok);
+        assert.equal(engine.getState(room, 'user_ana')[key].cards.length, 1);
+      });
+    });
+
     test('plano de ação exige revelação e valida responsáveis', function () {
       var room = engine.createRoom(person('user_ana', 'Ana'));
       engine.joinRoom(room, person('user_bia', 'Bia'));

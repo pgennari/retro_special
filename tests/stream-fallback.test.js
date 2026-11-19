@@ -108,6 +108,19 @@ async function main() {
     assert(second.data.state.version > version, 'o fallback vê a versão atualizada');
     equal(second.data.state.acertos.cards.length, 1, 'o fallback vê o card novo');
 
+    const reveal = await call('/api/rooms/' + code + '/actions', {
+      method: 'POST',
+      body: { userId: 'user_ana', type: 'column:reveal', payload: { column: 'acertos' } }
+    });
+    equal(reveal.status, 200, 'revelação dos acertos');
+
+    const lateCard = await call('/api/rooms/' + code + '/actions', {
+      method: 'POST',
+      body: { userId: 'user_ana', type: 'card:add', payload: { column: 'acertos', text: 'Card tardio' } }
+    });
+    equal(lateCard.status, 400, 'novo card após revelação é recusado pela API');
+    equal(lateCard.data.ok, false, 'a API sinaliza a recusa');
+
     const controller = new AbortController();
     const stream = await fetch(base + '/api/rooms/' + code + '/stream?userId=user_ana', {
       signal: controller.signal

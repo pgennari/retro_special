@@ -603,6 +603,20 @@
     var tabCount = $('[data-tab-count="' + key + '"]', refs.tabs);
     if (tabCount) tabCount.textContent = String(column.cards.length);
 
+    // Depois da revelação o bloco fecha para novas entradas.
+    var closed = !!column.revealed;
+    panel.form.classList.toggle('is-closed', closed);
+    panel.textarea.disabled = closed;
+    panel.textarea.placeholder = closed
+      ? 'Bloco revelado — novos cards bloqueados.'
+      : (key === 'acertos' ? 'O que deu certo?' : 'O que pode melhorar?');
+    if (closed && panel.textarea.value) panel.textarea.value = '';
+    var addButton = panel.form.querySelector('button[type="submit"]');
+    if (addButton) {
+      addButton.disabled = closed || panel.form.dataset.busy === '1';
+      addButton.title = closed ? 'Bloco revelado' : (key === 'acertos' ? 'Adicionar acerto' : 'Adicionar melhoria');
+    }
+
     var cards = column.cards.slice();
     if (key === 'acertos') {
       cards.sort(function (a, b) { return (b.likeCount || 0) - (a.likeCount || 0); });
@@ -1264,6 +1278,7 @@
   function submitCard(column) {
     var panel = refs.panels[column];
     if (!panel || panel.form.dataset.busy) return;
+    if (current && current[column] && current[column].revealed) return;
     var text = panel.textarea.value.trim();
     if (!text) {
       ui.toast('Escreva alguma coisa antes de adicionar.', 'error');
@@ -1276,10 +1291,12 @@
     runAction('card:add', { column: column, text: text }, { lockKey: 'add-' + column }).then(function (ok) {
       if (ok) {
         panel.textarea.value = '';
-        panel.textarea.focus({ preventScroll: true });
+        if (!panel.textarea.disabled) panel.textarea.focus({ preventScroll: true });
       }
       panel.form.dataset.busy = '';
-      if (button) button.disabled = false;
+      if (button) {
+        button.disabled = !!(current && current[column] && current[column].revealed);
+      }
     });
   }
 
