@@ -34,6 +34,7 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 - Link de convite (`/sala/CODIGO`) leva direto para a sala — e pede a identificação se ainda não houver.
 - Presença ao vivo, pessoas conectadas/offline e remoção de participantes pelo organizador.
 - Sincronização por **WebSocket** (`wss://…/ws/rooms/CODIGO?userId=…`); SSE e polling REST entram automaticamente se o proxy bloquear o upgrade.
+- O organizador pode **chamar a turma para a Dinâmica**: quem estiver em outra aba vê o botão da Dinâmica triplicar e sacudir.
 - Ao sair, seu lugar é mantido: volte quando quiser usando o código.
 
 ### Acertos e Melhorias

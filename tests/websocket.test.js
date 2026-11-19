@@ -175,6 +175,18 @@ async function main() {
     const pong = await ana.waitFor((msg) => msg.type === 'pong', 1000);
     assert(pong, 'o servidor responde ao ping do cliente');
 
+    const callResult = await call('/api/rooms/' + code + '/actions', {
+      method: 'POST',
+      body: { userId: 'user_ana', type: 'dynamics:call', payload: {} }
+    });
+    equal(callResult.status, 200, 'chamada para a dinâmica');
+    const called = await bia.waitFor(
+      (msg) => msg.type === 'state' && msg.event && msg.event.kind === 'dynamics-call',
+      2000
+    );
+    assert(called.state.dynamics.call, 'o chamado aparece no estado enviado ao outro cliente');
+    equal(called.state.dynamics.call.by, 'user_ana', 'o organizador que chamou');
+
     const rejected = await new Promise((resolve) => {
       const bad = new WebSocket(wsBase + 'intruso');
       bad.once('open', () => {

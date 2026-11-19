@@ -35,6 +35,8 @@
   var selectedTarget = null;
   var lastPhase = null;
   var lastRound = 0;
+  var dynamicsCallReady = false;
+  var lastDynamicsCallId = null;
 
   var seenShuffle = 0;
   var shufflePlaying = false;
@@ -343,6 +345,10 @@
       activeTab = null;
     } else {
       activeTab = tab;
+      if (tab === 'dynamics') {
+        var dynamicsTab = document.getElementById('tab-dynamics');
+        if (dynamicsTab) dynamicsTab.classList.remove('is-calling');
+      }
     }
     updateTabUi();
   }
@@ -406,6 +412,15 @@
     current = next;
     currentUserId = next.viewerId;
 
+    // O chamado também vai no estado, para quem estiver no fallback por polling.
+    var dynamicsCall = next.dynamics && next.dynamics.call;
+    if (options.force) {
+      dynamicsCallReady = true;
+      lastDynamicsCallId = dynamicsCall ? dynamicsCall.id : null;
+    } else if (dynamicsCall && dynamicsCallReady) {
+      receiveDynamicsCall(dynamicsCall.id, dynamicsCall.by);
+    }
+
     if (previous && previous.dynamics.round !== next.dynamics.round) {
       drafts.question = '';
       drafts.answer = '';
@@ -461,6 +476,10 @@
     if (refs.headerUser) refs.headerUser.hidden = true;
     presenting = false;
     activeTab = 'acertos';
+    dynamicsCallReady = false;
+    lastDynamicsCallId = null;
+    var dynamicsTab = document.getElementById('tab-dynamics');
+    if (dynamicsTab) dynamicsTab.classList.remove('is-calling');
     updateTabUi();
     stopQuestionPlaceholderRotation();
     refs.avatarStack.innerHTML = '';
@@ -723,6 +742,10 @@
     refs.phase.setAttribute('data-phase', d.phase);
 
     var extra = '';
+    if (current.isOrganizer) {
+      extra += '<button class="btn btn-secondary btn-small call-dynamics-btn" type="button" ' +
+        'data-action="call-dynamics" title="Avisar quem não está na Dinâmica">📣 Chamar pra dinâmica</button>';
+    }
     if (current.isOrganizer && d.questionAvailable && d.phase !== 'setup') {
       extra += '<button class="eye-btn' + (d.questionVisible ? '' : ' is-hidden') + '" type="button" ' +
         'data-action="toggle-question" title="' + (d.questionVisible ? 'Ocultar pergunta' : 'Mostrar pergunta') + '">' +
@@ -1355,6 +1378,13 @@
     runAction('dynamics:toggleQuestion', { visible: !current.dynamics.questionVisible }, { lockKey: 'question-visibility' });
   }
 
+  function callDynamics() {
+    if (!current || !current.isOrganizer) return;
+    runAction('dynamics:call', {}, { lockKey: 'dynamics-call' }).then(function (ok) {
+      if (ok) ui.toast('Chamando todo mundo para a dinâmica!', 'success');
+    });
+  }
+
   function shuffleAnswers() {
     if (!current || !current.dynamics.canShuffle) {
       ui.toast('Ainda faltam respostas para liberar a dinâmica.', 'error');
@@ -1576,6 +1606,7 @@
       var name = action.getAttribute('data-action');
       if (name === 'save-question') saveQuestion(false);
       else if (name === 'start-collecting') startCollecting();
+      else if (name === 'call-dynamics') callDynamics();
       else if (name === 'toggle-question') toggleQuestion();
       else if (name === 'submit-answer') submitAnswer();
       else if (name === 'shuffle') shuffleAnswers();
@@ -1720,7 +1751,21 @@
     } else if (event.kind === 'dynamics-reset') {
       // o toast de confirmação é local; para os outros, um aviso leve
       if (event.actorId !== currentUserId) ui.toast('Uma nova fase começou.', 'success');
+    } else if (event.kind === 'dynamics-call') {
+      receiveDynamicsCall(event.callId, event.actorId);
     }
+  }
+
+  function receiveDynamicsCall(callId, actorId) {
+    if (!callId || callId === lastDynamicsCallId) return;
+    lastDynamicsCallId = callId;
+    if (actorId === currentUserId || activeTab === 'dynamics') return;
+    var tab = document.getElementById('tab-dynamics');
+    if (!tab) return;
+    tab.classList.remove('is-calling');
+    void tab.offsetWidth;
+    tab.classList.add('is-calling');
+    later(function () { tab.classList.remove('is-calling'); }, 2400);
   }
 
   function animateLike(event) {

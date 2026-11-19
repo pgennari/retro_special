@@ -106,6 +106,24 @@
       assert.deepEqual(state.melhorias.cards[0].actionPlan.assignees, ['user_bia']);
     });
 
+    test('organizador pode chamar a turma para a dinâmica', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+
+      var denied = engine.applyAction(room, 'user_bia', 'dynamics:call', {});
+      assert.ok(!denied.ok);
+
+      var call = engine.applyAction(room, 'user_ana', 'dynamics:call', {});
+      assert.ok(call.ok);
+      assert.equal(call.event.kind, 'dynamics-call');
+      assert.ok(call.event.callId);
+
+      var biaView = engine.getState(room, 'user_bia');
+      assert.ok(biaView.dynamics.call);
+      assert.equal(biaView.dynamics.call.by, 'user_ana');
+      assert.equal(biaView.dynamics.call.id, call.event.callId);
+    });
+
     test('dinâmica completa: pergunta, respostas ocultas, embaralhamento, votos e placar', function () {
       var room = engine.createRoom(person('user_ana', 'Ana'));
       engine.joinRoom(room, person('user_bia', 'Bia'));

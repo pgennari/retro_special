@@ -151,6 +151,7 @@
       order: [],
       assignments: {},
       revealed: [],
+      call: null,
       shuffleAt: 0,
       startedAt: 0,
       closedAt: 0
@@ -609,6 +610,15 @@
         return { ok: true, event: { kind: 'dynamics-reset' } };
       }
 
+      case 'dynamics:call': {
+        orgError = requireOrganizer(room, userId);
+        if (orgError) return orgError;
+        var call = { id: uid('call'), by: userId, at: Date.now() };
+        room.dynamics.call = call;
+        touch(room);
+        return { ok: true, event: { kind: 'dynamics-call', callId: call.id, actorId: userId } };
+      }
+
       /* ----------------------------- sala ------------------------------ */
       case 'room:kick': {
         orgError = requireOrganizer(room, userId);
@@ -982,6 +992,7 @@
       order: d.order.slice(),
       revealed: d.revealed.slice(),
       revealedCount: d.revealed.length,
+      call: d.call ? { id: d.call.id, by: d.call.by, at: d.call.at } : null,
       totalAnswers: d.order.length,
       assignments: (phase === 'voting' || phase === 'closed' || phase === 'done') ? d.assignments : {},
       myAssignments: myAssignments,

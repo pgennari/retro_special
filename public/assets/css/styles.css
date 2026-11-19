@@ -1471,6 +1471,21 @@ img { max-width: 100%; }
   transform: scale(1.05);
 }
 
+#tab-dynamics.is-calling {
+  z-index: 60;
+  transform-origin: bottom right;
+  animation: dynamicsCall 0.5s ease-in-out 4;
+  box-shadow: 0 0 0 10px var(--yellow-soft), var(--shadow-lg);
+}
+
+@keyframes dynamicsCall {
+  0%, 100% { transform: scale(1) rotate(0); }
+  20% { transform: scale(3) rotate(-12deg); }
+  40% { transform: scale(3) rotate(12deg); }
+  60% { transform: scale(3) rotate(-12deg); }
+  80% { transform: scale(3) rotate(12deg); }
+}
+
 @keyframes fabHeartbeat {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }
