@@ -152,6 +152,7 @@
       assignments: {},
       revealed: [],
       call: null,
+      attention: null,
       shuffleAt: 0,
       startedAt: 0,
       closedAt: 0
@@ -619,6 +620,18 @@
         return { ok: true, event: { kind: 'dynamics-call', callId: call.id, actorId: userId } };
       }
 
+      case 'dynamics:attention': {
+        orgError = requireOrganizer(room, userId);
+        if (orgError) return orgError;
+        if (room.dynamics.phase !== 'voting') {
+          return { ok: false, error: 'A votação ainda não começou.' };
+        }
+        var attention = { id: uid('attention'), by: userId, at: Date.now() };
+        room.dynamics.attention = attention;
+        touch(room);
+        return { ok: true, event: { kind: 'dynamics-attention', attentionId: attention.id, actorId: userId } };
+      }
+
       /* ----------------------------- sala ------------------------------ */
       case 'room:kick': {
         orgError = requireOrganizer(room, userId);
@@ -993,6 +1006,7 @@
       revealed: d.revealed.slice(),
       revealedCount: d.revealed.length,
       call: d.call ? { id: d.call.id, by: d.call.by, at: d.call.at } : null,
+      attention: d.attention ? { id: d.attention.id, by: d.attention.by, at: d.attention.at } : null,
       totalAnswers: d.order.length,
       assignments: (phase === 'voting' || phase === 'closed' || phase === 'done') ? d.assignments : {},
       myAssignments: myAssignments,

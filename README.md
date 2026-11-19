@@ -35,6 +35,7 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 - Presença ao vivo, pessoas conectadas/offline e remoção de participantes pelo organizador.
 - Sincronização por **WebSocket** (`wss://…/ws/rooms/CODIGO?userId=…`); SSE e polling REST entram automaticamente se o proxy bloquear o upgrade.
 - O organizador pode **chamar a turma para a Dinâmica**: quem estiver em outra aba vê o botão da Dinâmica triplicar e sacudir.
+- Na votação, o organizador pode **chamar atenção**: os cards ainda sem palpite sacodem para quem está com votos pendentes.
 - Ao sair, seu lugar é mantido: volte quando quiser usando o código.
 
 ### Acertos e Melhorias

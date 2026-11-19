@@ -2477,6 +2477,21 @@ img { max-width: 100%; }
 .vote-card.is-voted:hover { box-shadow: 4px 4px 0 var(--green); }
 .vote-card.is-voted .vote-index { color: var(--green); }
 
+.vote-card.is-attention {
+  z-index: 5;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow);
+  animation: voteAttention 0.45s ease-in-out 4;
+}
+
+@keyframes voteAttention {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  20% { transform: translateX(-10px) rotate(-3deg); }
+  40% { transform: translateX(10px) rotate(3deg); }
+  60% { transform: translateX(-8px) rotate(-2deg); }
+  80% { transform: translateX(8px) rotate(2deg); }
+}
+
 .vote-flag {
   position: absolute;
   top: 9px;

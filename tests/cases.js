@@ -124,6 +124,31 @@
       assert.equal(biaView.dynamics.call.id, call.event.callId);
     });
 
+    test('organizador pode pedir atenção aos palpites pendentes', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+
+      assert.ok(!engine.applyAction(room, 'user_ana', 'dynamics:attention', {}).ok);
+
+      assert.ok(engine.applyAction(room, 'user_ana', 'dynamics:setQuestion', { text: 'Pergunta?' }).ok);
+      assert.ok(engine.applyAction(room, 'user_ana', 'dynamics:startCollecting', {}).ok);
+      assert.ok(engine.applyAction(room, 'user_ana', 'dynamics:answer', { text: 'Resposta 1' }).ok);
+      assert.ok(engine.applyAction(room, 'user_bia', 'dynamics:answer', { text: 'Resposta 2' }).ok);
+      assert.ok(engine.applyAction(room, 'user_ana', 'dynamics:shuffle', {}).ok);
+
+      assert.ok(!engine.applyAction(room, 'user_bia', 'dynamics:attention', {}).ok);
+      var attention = engine.applyAction(room, 'user_ana', 'dynamics:attention', {});
+      assert.ok(attention.ok);
+      assert.equal(attention.event.kind, 'dynamics-attention');
+      assert.ok(attention.event.attentionId);
+
+      var state = engine.getState(room, 'user_bia');
+      assert.equal(state.dynamics.phase, 'voting');
+      assert.equal(state.dynamics.voting.pending.length, 2);
+      assert.ok(state.dynamics.attention);
+      assert.equal(state.dynamics.attention.by, 'user_ana');
+    });
+
     test('dinâmica completa: pergunta, respostas ocultas, embaralhamento, votos e placar', function () {
       var room = engine.createRoom(person('user_ana', 'Ana'));
       engine.joinRoom(room, person('user_bia', 'Bia'));

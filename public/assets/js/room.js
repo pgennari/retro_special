@@ -37,6 +37,8 @@
   var lastRound = 0;
   var dynamicsCallReady = false;
   var lastDynamicsCallId = null;
+  var attentionReady = false;
+  var lastAttentionId = null;
 
   var seenShuffle = 0;
   var shufflePlaying = false;
@@ -414,11 +416,15 @@
 
     // O chamado também vai no estado, para quem estiver no fallback por polling.
     var dynamicsCall = next.dynamics && next.dynamics.call;
+    var attention = next.dynamics && next.dynamics.attention;
     if (options.force) {
       dynamicsCallReady = true;
       lastDynamicsCallId = dynamicsCall ? dynamicsCall.id : null;
-    } else if (dynamicsCall && dynamicsCallReady) {
-      receiveDynamicsCall(dynamicsCall.id, dynamicsCall.by);
+      attentionReady = true;
+      lastAttentionId = attention ? attention.id : null;
+    } else {
+      if (dynamicsCall && dynamicsCallReady) receiveDynamicsCall(dynamicsCall.id, dynamicsCall.by);
+      if (attention && attentionReady) receiveDynamicsAttention(attention.id, attention.by);
     }
 
     if (previous && previous.dynamics.round !== next.dynamics.round) {
@@ -478,6 +484,8 @@
     activeTab = 'acertos';
     dynamicsCallReady = false;
     lastDynamicsCallId = null;
+    attentionReady = false;
+    lastAttentionId = null;
     var dynamicsTab = document.getElementById('tab-dynamics');
     if (dynamicsTab) dynamicsTab.classList.remove('is-calling');
     updateTabUi();
@@ -753,6 +761,8 @@
         '</button>';
     }
     if (current.isOrganizer && d.phase === 'voting') {
+      extra += '<button class="btn btn-secondary btn-small attention-head" type="button" data-action="attention" ' +
+        (d.voting.complete ? 'disabled title="Todo mundo já votou"' : '') + '>🔔 Chamar atenção</button>';
       extra += '<button class="btn btn-secondary btn-small end-voting-head" type="button" data-action="end-voting" ' +
         (d.canEndVoting ? '' : 'disabled title="Todos precisam terminar os palpites"') + '>Encerrar votação 🔒</button>';
     }
@@ -1385,6 +1395,11 @@
     });
   }
 
+  function callAttention() {
+    if (!current || !current.isOrganizer) return;
+    runAction('dynamics:attention', {}, { lockKey: 'dynamics-attention' });
+  }
+
   function shuffleAnswers() {
     if (!current || !current.dynamics.canShuffle) {
       ui.toast('Ainda faltam respostas para liberar a dinâmica.', 'error');
@@ -1607,6 +1622,7 @@
       if (name === 'save-question') saveQuestion(false);
       else if (name === 'start-collecting') startCollecting();
       else if (name === 'call-dynamics') callDynamics();
+      else if (name === 'attention') callAttention();
       else if (name === 'toggle-question') toggleQuestion();
       else if (name === 'submit-answer') submitAnswer();
       else if (name === 'shuffle') shuffleAnswers();
@@ -1753,6 +1769,8 @@
       if (event.actorId !== currentUserId) ui.toast('Uma nova fase começou.', 'success');
     } else if (event.kind === 'dynamics-call') {
       receiveDynamicsCall(event.callId, event.actorId);
+    } else if (event.kind === 'dynamics-attention') {
+      receiveDynamicsAttention(event.attentionId, event.actorId);
     }
   }
 
@@ -1766,6 +1784,26 @@
     void tab.offsetWidth;
     tab.classList.add('is-calling');
     later(function () { tab.classList.remove('is-calling'); }, 2400);
+  }
+
+  function receiveDynamicsAttention(attentionId, actorId) {
+    if (!attentionId || attentionId === lastAttentionId) return;
+    lastAttentionId = attentionId;
+    if (actorId === currentUserId || !current || current.dynamics.phase !== 'voting') return;
+
+    var pending = (current.dynamics.voting && current.dynamics.voting.pending) || [];
+    var isPending = pending.some(function (person) { return person.id === currentUserId; });
+    if (!isPending) return;
+
+    var cards = $$('.vote-grid .vote-card:not(.is-voted):not(.is-own)', refs.dynamicsBody);
+    if (!cards.length) return;
+    cards.forEach(function (card) {
+      card.classList.remove('is-attention');
+      void card.offsetWidth;
+      card.classList.add('is-attention');
+      later(function () { card.classList.remove('is-attention'); }, 2200);
+    });
+    ui.toast('O organizador está chamando a atenção para os palpites pendentes.');
   }
 
   function animateLike(event) {
