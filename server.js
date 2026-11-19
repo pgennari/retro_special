@@ -15,6 +15,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const WebSocket = require('ws');
 const Engine = require('./public/assets/js/engine.js');
 const store = require('./lib/store.js');
 
@@ -28,7 +29,8 @@ const ADMIN_KEY = String(process.env.ADMIN_KEY || '').trim();
 
 const rooms = new Map(); // code -> room
 const adminRooms = new Map(); // code -> sala aberta pela administração (não expira)
-const streams = new Map(); // code -> Map<userId, Set<res>>
+const streams = new Map(); // code -> Map<userId, Set<res>> (SSE)
+const sockets = new Map(); // code -> Map<userId, Set<WebSocket>>
 const loading = new Map(); // code -> Promise<room|null>
 const adminLoading = new Map(); // code -> Promise<room|null>
 
@@ -83,6 +85,20 @@ function sendJson(res, status, body) {
 
 function sendError(res, status, message) {
   sendJson(res, status, { ok: false, error: message });
+}
+
+function rejectUpgrade(socket, status, message) {
+  const reasons = { 400: 'Bad Request', 403: 'Forbidden', 404: 'Not Found' };
+  const body = String(message || reasons[status] || 'Erro');
+  try {
+    socket.write(
+      'HTTP/1.1 ' + status + ' ' + (reasons[status] || 'Error') + '\r\n' +
+      'Connection: close\r\n' +
+      'Content-Type: text/plain; charset=utf-8\r\n' +
+      'Content-Length: ' + Buffer.byteLength(body) + '\r\n\r\n' + body
+    );
+  } catch (error) { /* noop */ }
+  try { socket.destroy(); } catch (error) { /* noop */ }
 }
 
 function corsOrigin(req) {
@@ -357,6 +373,13 @@ function getStreamsFor(code, userId) {
   return byUser.get(userId);
 }
 
+function getSocketsFor(code, userId) {
+  if (!sockets.has(code)) sockets.set(code, new Map());
+  const byUser = sockets.get(code);
+  if (!byUser.has(userId)) byUser.set(userId, new Set());
+  return byUser.get(userId);
+}
+
 function writeSse(res, payload) {
   try {
     res.write('data: ' + JSON.stringify(payload) + '\n\n');
@@ -365,56 +388,132 @@ function writeSse(res, payload) {
   }
 }
 
+function sendSocket(ws, payload) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  try {
+    ws.send(JSON.stringify(payload));
+  } catch (error) {
+    /* conexão morta: o handler de close limpa */
+  }
+}
+
+function kickUserConnections(code, userId, message) {
+  const reason = message || 'Você não está mais nesta sala.';
+  const sseByUser = streams.get(code);
+  if (sseByUser && sseByUser.has(userId)) {
+    const set = sseByUser.get(userId);
+    set.forEach((res) => {
+      writeSse(res, { type: 'kicked', message: reason });
+      try { res.end(); } catch (error) { /* noop */ }
+    });
+    set.clear();
+    sseByUser.delete(userId);
+  }
+
+  const socketByUser = sockets.get(code);
+  if (socketByUser && socketByUser.has(userId)) {
+    const set = socketByUser.get(userId);
+    set.forEach((ws) => {
+      sendSocket(ws, { type: 'kicked', message: reason });
+      try { ws.close(1000, reason); } catch (error) { /* noop */ }
+    });
+    set.clear();
+    socketByUser.delete(userId);
+  }
+}
+
+/** Envia o estado de cada pessoa para todas as conexões dela (WS e SSE). */
 function broadcast(code, event) {
   const room = rooms.get(code);
   if (!room) return;
-  const byUser = streams.get(code);
-  if (!byUser) return;
+  const sseByUser = streams.get(code);
+  const socketByUser = sockets.get(code);
+  const userIds = new Set();
+  if (sseByUser) sseByUser.forEach((set, userId) => userIds.add(userId));
+  if (socketByUser) socketByUser.forEach((set, userId) => userIds.add(userId));
 
-  byUser.forEach((set, userId) => {
+  userIds.forEach((userId) => {
     const member = Engine.findUser(room, userId);
     if (!member) {
-      set.forEach((res) => {
-        writeSse(res, { type: 'kicked', message: 'Você não está mais nesta sala.' });
-        try { res.end(); } catch (error) { /* noop */ }
-      });
-      set.clear();
-      byUser.delete(userId);
+      kickUserConnections(code, userId, 'Você não está mais nesta sala.');
       return;
     }
-    const state = Engine.getState(room, userId);
-    set.forEach((res) => {
-      writeSse(res, { type: 'state', state, event: event || null });
-    });
+    const payload = { type: 'state', state: Engine.getState(room, userId), event: event || null };
+    if (sseByUser && sseByUser.has(userId)) {
+      sseByUser.get(userId).forEach((res) => writeSse(res, payload));
+    }
+    if (socketByUser && socketByUser.has(userId)) {
+      socketByUser.get(userId).forEach((ws) => sendSocket(ws, payload));
+    }
   });
 }
 
-function cleanupUserStreams(code, userId) {
-  const byUser = streams.get(code);
-  if (!byUser) return;
-  const set = byUser.get(userId);
-  if (!set || set.size === 0) {
-    byUser.delete(userId);
-    const room = rooms.get(code);
-    if (room && Engine.setConnected(room, userId, false)) {
-      store.saveRoom(room);
-      broadcast(code, { kind: 'presence', userId, connected: false });
-    }
+/** Só marca offline quando não sobrar nenhuma conexão (WS ou SSE) da pessoa. */
+function cleanupUserConnections(code, userId) {
+  const sseSet = streams.get(code) && streams.get(code).get(userId);
+  const socketSet = sockets.get(code) && sockets.get(code).get(userId);
+  if ((sseSet && sseSet.size) || (socketSet && socketSet.size)) return;
+
+  if (sseSet) streams.get(code).delete(userId);
+  if (socketSet) sockets.get(code).delete(userId);
+
+  const room = rooms.get(code);
+  if (room && Engine.setConnected(room, userId, false)) {
+    store.saveRoom(room);
+    broadcast(code, { kind: 'presence', userId, connected: false });
   }
 }
 
-function closeRoomStreams(code, message) {
-  const byUser = streams.get(code);
-  if (byUser) {
-    byUser.forEach((set) => {
-      set.forEach((res) => {
-        writeSse(res, { type: 'kicked', message: message || 'Esta sala não existe mais.' });
-        try { res.end(); } catch (error) { /* noop */ }
-      });
-      set.clear();
-    });
-  }
+function closeRoomConnections(code, message) {
+  const reason = message || 'Esta sala não existe mais.';
+  const sseByUser = streams.get(code);
+  const socketByUser = sockets.get(code);
+  Array.from(sseByUser ? sseByUser.keys() : []).forEach((userId) => kickUserConnections(code, userId, reason));
+  Array.from(socketByUser ? socketByUser.keys() : []).forEach((userId) => kickUserConnections(code, userId, reason));
   streams.delete(code);
+  sockets.delete(code);
+}
+
+function hasLiveConnections(code) {
+  return [streams, sockets].some((map) => {
+    const byUser = map.get(code);
+    return !!byUser && Array.from(byUser.values()).some((set) => set.size > 0);
+  });
+}
+
+/** Registra um cliente WebSocket e passa a mandar os eventos por ele. */
+function openSocket(ws, room, userId) {
+  const code = room.code;
+  if (!Engine.findUser(room, userId)) {
+    sendSocket(ws, { type: 'kicked', message: 'Você não está mais nesta sala.' });
+    try { ws.close(1000, 'Você não está mais nesta sala.'); } catch (error) { /* noop */ }
+    return;
+  }
+
+  const set = getSocketsFor(code, userId);
+  set.add(ws);
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
+  // O ping do cliente também renova a atividade do serviço no Render.
+  ws.on('message', (raw) => {
+    let message = null;
+    try { message = JSON.parse(raw.toString()); } catch (error) { return; }
+    if (message && message.type === 'ping') sendSocket(ws, { type: 'pong' });
+  });
+
+  const becameConnected = Engine.setConnected(room, userId, true);
+  if (becameConnected) {
+    store.saveRoom(room);
+    broadcast(code, { kind: 'presence', userId, connected: true });
+  }
+  sendSocket(ws, { type: 'state', state: Engine.getState(room, userId), event: null });
+
+  ws.on('close', () => {
+    set.delete(ws);
+    cleanupUserConnections(code, userId);
+  });
+  ws.on('error', () => { /* o close faz a limpeza */ });
 }
 
 /* ------------------------------------------------------------------ *
@@ -502,18 +601,29 @@ function openStream(req, res, room, userId) {
 
   req.on('close', () => {
     set.delete(res);
-    if (set.size === 0) {
-      cleanupUserStreams(code, userId);
-    }
+    cleanupUserConnections(code, userId);
   });
 }
 
-// keep-alive para proxies/navegadores
+// keep-alive: SSE para proxies/navegadores; WS para detectar conexões mortas.
 setInterval(() => {
   streams.forEach((byUser) => {
     byUser.forEach((set) => {
       set.forEach((res) => {
         try { res.write(': ping\n\n'); } catch (error) { /* noop */ }
+      });
+    });
+  });
+
+  sockets.forEach((byUser) => {
+    byUser.forEach((set) => {
+      set.forEach((ws) => {
+        if (ws.isAlive === false) {
+          try { ws.terminate(); } catch (error) { /* noop */ }
+          return;
+        }
+        ws.isAlive = false;
+        try { ws.ping(); } catch (error) { /* noop */ }
       });
     });
   });
@@ -611,7 +721,7 @@ async function handleAdmin(req, res, url, segments) {
     adminRooms.delete(code);
     loading.delete(code);
     adminLoading.delete(code);
-    closeRoomStreams(code, 'Esta sala foi encerrada pelo administrador.');
+    closeRoomConnections(code, 'Esta sala foi encerrada pelo administrador.');
     return sendJson(res, 200, { ok: true, deleted: true });
   }
 
@@ -742,6 +852,8 @@ async function handleApi(req, res, url) {
  * servidor
  * ------------------------------------------------------------------ */
 
+const wss = new WebSocket.Server({ noServer: true, maxPayload: 16 * 1024 });
+
 const server = http.createServer(async (req, res) => {
   let url;
   let pathname;
@@ -821,10 +933,10 @@ async function cleanupRooms() {
   const cutoff = Date.now() - ROOM_TTL_MS;
 
   for (const [code, room] of Array.from(rooms.entries())) {
-    const hasStreams = streams.has(code) && Array.from(streams.get(code).values()).some((set) => set.size > 0);
-    if (!hasStreams && room.updatedAt < cutoff) {
+    if (!hasLiveConnections(code) && room.updatedAt < cutoff) {
       rooms.delete(code);
       streams.delete(code);
+      sockets.delete(code);
       try { await store.deleteRoom(code); } catch (error) { console.error('[store] falha ao apagar sala antiga', code, error.message); }
     }
   }
@@ -835,7 +947,7 @@ async function cleanupRooms() {
     const excess = rooms.size - 500;
     for (let i = 0; i < excess; i += 1) {
       const code = oldest[i][0];
-      if (!streams.has(code)) {
+      if (!hasLiveConnections(code)) {
         rooms.delete(code);
         try { await store.deleteRoom(code); } catch (error) { console.error('[store] falha ao apagar sala antiga', code, error.message); }
       }
@@ -847,11 +959,58 @@ setInterval(() => {
   cleanupRooms().catch((error) => console.error('[cleanup]', error.message));
 }, 10 * 60 * 1000).unref();
 
+// WebSocket: mesmo processo/porta do HTTP, com validação de código, pessoa e origem.
+server.on('upgrade', (req, socket, head) => {
+  let url;
+  try {
+    url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
+  } catch (error) {
+    rejectUpgrade(socket, 400, 'Endereço inválido.');
+    return;
+  }
+
+  const segments = url.pathname.split('/').filter(Boolean);
+  if (segments[0] !== 'ws' || segments[1] !== 'rooms') {
+    rejectUpgrade(socket, 404, 'Rota não encontrada.');
+    return;
+  }
+  if (ALLOWED_ORIGINS.length && !corsOrigin(req)) {
+    rejectUpgrade(socket, 403, 'Origem não permitida.');
+    return;
+  }
+
+  const code = Engine.normalizeCode(segments[2]);
+  const userId = String(url.searchParams.get('userId') || '');
+  if (!code || !userId) {
+    rejectUpgrade(socket, 400, 'Código e pessoa são obrigatórios.');
+    return;
+  }
+
+  const room = rooms.get(code);
+  if (!room) {
+    rejectUpgrade(socket, 404, 'Sala não encontrada.');
+    return;
+  }
+  if (!Engine.findUser(room, userId)) {
+    rejectUpgrade(socket, 403, 'Você não está nesta sala.');
+    return;
+  }
+
+  wss.handleUpgrade(req, socket, head, (ws) => openSocket(ws, room, userId));
+});
+
 let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log('\n  ' + signal + ': salvando salas e encerrando…');
+  sockets.forEach((byUser) => {
+    byUser.forEach((set) => {
+      set.forEach((ws) => {
+        try { ws.close(1001, 'Servidor reiniciando.'); } catch (error) { /* noop */ }
+      });
+    });
+  });
   store.flush()
     .catch((error) => console.error('[store] falha ao salvar no encerramento', error.message))
     .finally(() => {

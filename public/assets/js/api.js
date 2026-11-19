@@ -1,4 +1,4 @@
-/* Retro Special — camada de dados (servidor via SSE) */
+/* Retro Special — camada de dados (WebSocket, com SSE e REST como fallback) */
 (function () {
   'use strict';
 
@@ -75,25 +75,50 @@
     return { state: data.state, event: data.event || null };
   }
 
-  // SSE é o canal preferencial. Em redes protegidas, porém, proxies podem
-  // segurar a resposta do EventSource para sempre (sem onopen e sem onerror).
-  // Nesse caso caímos para polling de um endpoint REST, que usa o mesmo canal
-  // das chamadas de criar/entrar/ação e continua mantendo a sala atualizada.
+  // WebSocket é o canal preferencial: as ações chegam na hora, sem esperar
+  // um intervalo. SSE entra se o upgrade for bloqueado e, se o EventSource
+  // também ficar preso no proxy, o REST por polling mantém a sala viva.
+  var WS_OPEN_TIMEOUT = 6000;
+  var WS_MAX_ERRORS = 3;
+  var WS_RETRY_DELAY = 30000;
+  var WS_PING_INTERVAL = 25000;
   var SSE_OPEN_TIMEOUT = 6000;
   var SSE_MAX_ERRORS = 3;
   var SSE_RETRY_DELAY = 30000;
   var POLL_INTERVAL = 2500;
 
+  function webSocketURL(path) {
+    try {
+      var url = new URL(apiURL(path), window.location.href);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      return url.toString();
+    } catch (error) {
+      return '';
+    }
+  }
+
   function realConnect(code, userId, handlers) {
     var closed = false;
+    var lastStatus = '';
+    var lastEventKey = '';
+    var unexpectedCloses = 0;
+
+    var ws = null;
+    var wsOpenTimer = null;
+    var wsRetryTimer = null;
+    var wsPingTimer = null;
+    var wsErrors = 0;
+
     var source = null;
-    var openTimer = null;
-    var retryTimer = null;
+    var sseOpenTimer = null;
+    var sseRetryTimer = null;
+    var sseErrors = 0;
+
     var pollTimer = null;
     var polling = false;
     var pollingBusy = false;
-    var errors = 0;
-    var lastStatus = '';
+
+    var wsUrl = webSocketURL('/ws/rooms/' + encodeURIComponent(code) + '?userId=' + encodeURIComponent(userId));
     var streamUrl = apiURL('/api/rooms/' + encodeURIComponent(code) + '/stream?userId=' + encodeURIComponent(userId));
     var stateUrl = apiURL('/api/rooms/' + encodeURIComponent(code) + '/state?userId=' + encodeURIComponent(userId));
     var roomUrl = apiURL('/api/rooms/' + encodeURIComponent(code));
@@ -104,19 +129,57 @@
       if (handlers.onStatus) handlers.onStatus(next);
     }
 
-    function clearOpenTimer() {
-      if (openTimer) { clearTimeout(openTimer); openTimer = null; }
+    function receive(payload) {
+      if (closed || !payload) return;
+      if (payload.type === 'state') {
+        if (handlers.onState) handlers.onState(payload.state);
+        if (payload.event && handlers.onEvent) {
+          var key = String(payload.state && payload.state.version || '') + '|' + JSON.stringify(payload.event);
+          // A mesma versão pode chegar por WS e SSE durante a troca de canal.
+          if (key !== lastEventKey) {
+            lastEventKey = key;
+            handlers.onEvent(payload.event);
+          }
+        }
+      } else if (payload.type === 'kicked') {
+        finish(payload.message || 'Você não está mais nesta sala.');
+      }
     }
 
-    function clearRetryTimer() {
-      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    function clearTimer(name) {
+      if (name === 'wsOpen') { clearTimeout(wsOpenTimer); wsOpenTimer = null; }
+      else if (name === 'wsRetry') { clearTimeout(wsRetryTimer); wsRetryTimer = null; }
+      else if (name === 'sseOpen') { clearTimeout(sseOpenTimer); sseOpenTimer = null; }
+      else if (name === 'sseRetry') { clearTimeout(sseRetryTimer); sseRetryTimer = null; }
+    }
+
+    function stopWsPing() {
+      if (wsPingTimer) { clearInterval(wsPingTimer); wsPingTimer = null; }
+    }
+
+    function stopWebSocket() {
+      clearTimer('wsOpen');
+      stopWsPing();
+      if (ws) {
+        var socket = ws;
+        ws = null;
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        try { socket.close(); } catch (error) { /* noop */ }
+      }
     }
 
     function stopSse() {
-      clearOpenTimer();
+      clearTimer('sseOpen');
       if (source) {
-        try { source.close(); } catch (error) { /* noop */ }
+        var stream = source;
         source = null;
+        stream.onopen = null;
+        stream.onmessage = null;
+        stream.onerror = null;
+        try { stream.close(); } catch (error) { /* noop */ }
       }
     }
 
@@ -128,10 +191,14 @@
     function finish(message) {
       if (closed) return;
       closed = true;
-      clearOpenTimer();
-      clearRetryTimer();
+      clearTimer('wsOpen');
+      clearTimer('wsRetry');
+      clearTimer('sseOpen');
+      clearTimer('sseRetry');
+      stopWsPing();
       stopPolling();
       stopSse();
+      stopWebSocket();
       if (handlers.onKicked) handlers.onKicked(message);
     }
 
@@ -164,17 +231,92 @@
     function checkRoomGone() {
       fetch(roomUrl, { cache: 'no-store' }).then(function (response) {
         if (!closed && response.status === 404) finish('Esta sala não existe mais.');
-      }).catch(function () { /* rede indisponível */ });
+      }).catch(function (error) { /* rede indisponível */ });
+    }
+
+    function scheduleWebSocketRetry() {
+      clearTimer('wsRetry');
+      if (closed || ws) return;
+      wsRetryTimer = setTimeout(function () {
+        wsRetryTimer = null;
+        startWebSocket();
+      }, WS_RETRY_DELAY);
     }
 
     function scheduleSseRetry() {
-      clearRetryTimer();
-      retryTimer = setTimeout(startSse, SSE_RETRY_DELAY);
+      clearTimer('sseRetry');
+      if (closed) return;
+      sseRetryTimer = setTimeout(startSse, SSE_RETRY_DELAY);
+    }
+
+    function startWsPing() {
+      stopWsPing();
+      wsPingTimer = setInterval(function () {
+        if (!ws || ws.readyState !== 1) { stopWsPing(); return; }
+        try { ws.send(JSON.stringify({ type: 'ping' })); } catch (error) { /* noop */ }
+      }, WS_PING_INTERVAL);
+    }
+
+    function startWebSocket() {
+      if (closed || ws || !window.WebSocket || !wsUrl) return;
+      clearTimer('wsRetry');
+
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (error) {
+        scheduleWebSocketRetry();
+        return;
+      }
+
+      var socket = ws;
+      wsOpenTimer = setTimeout(function () {
+        if (closed || ws !== socket) return;
+        // Sem upgrade a tempo, o proxy pode estar bloqueando WebSockets.
+        stopWebSocket();
+        updateStatus('reconnecting');
+        startSse();
+        scheduleWebSocketRetry();
+      }, WS_OPEN_TIMEOUT);
+
+      socket.onopen = function () {
+        if (closed || ws !== socket) return;
+        clearTimer('wsOpen');
+        wsErrors = 0;
+        unexpectedCloses = 0;
+        stopSse();
+        stopPolling();
+        updateStatus('online');
+        startWsPing();
+      };
+
+      socket.onmessage = function (message) {
+        if (closed || ws !== socket) return;
+        var payload;
+        try { payload = JSON.parse(message.data); } catch (error) { return; }
+        receive(payload);
+      };
+
+      socket.onerror = function () {
+        if (closed || ws !== socket) return;
+        wsErrors += 1;
+      };
+
+      socket.onclose = function () {
+        if (closed || ws !== socket) return;
+        clearTimer('wsOpen');
+        stopWsPing();
+        ws = null;
+        updateStatus('reconnecting');
+        startSse();
+        scheduleWebSocketRetry();
+        unexpectedCloses += 1;
+        if (unexpectedCloses > WS_MAX_ERRORS) checkRoomGone();
+      };
     }
 
     function startSse() {
-      if (closed || source) return;
-      clearRetryTimer();
+      if (closed || source || ws) return;
+      clearTimer('sseRetry');
       try {
         source = new EventSource(streamUrl);
       } catch (error) {
@@ -183,7 +325,7 @@
         return;
       }
 
-      openTimer = setTimeout(function () {
+      sseOpenTimer = setTimeout(function () {
         if (closed || !source) return;
         // Nenhum header recebido a tempo: o proxy provavelmente bloqueou ou
         // bufferizou o fluxo. Mantemos o polling e tentamos o SSE depois.
@@ -194,47 +336,45 @@
 
       source.onopen = function () {
         if (closed) return;
-        clearOpenTimer();
-        errors = 0;
+        clearTimer('sseOpen');
+        sseErrors = 0;
         stopPolling();
         updateStatus('online');
       };
 
       source.onerror = function () {
         if (closed) return;
-        clearOpenTimer();
-        errors += 1;
+        clearTimer('sseOpen');
+        sseErrors += 1;
         startPolling();
-        if (errors >= SSE_MAX_ERRORS) {
+        if (sseErrors >= SSE_MAX_ERRORS) {
           stopSse();
           scheduleSseRetry();
         }
-        if (errors === 4) checkRoomGone();
+        if (sseErrors === 4) checkRoomGone();
       };
 
       source.onmessage = function (message) {
         if (closed) return;
         var payload;
         try { payload = JSON.parse(message.data); } catch (error) { return; }
-        if (!payload) return;
-        if (payload.type === 'state') {
-          if (handlers.onState) handlers.onState(payload.state);
-          if (payload.event && handlers.onEvent) handlers.onEvent(payload.event);
-        } else if (payload.type === 'kicked') {
-          finish(payload.message || 'Você não está mais nesta sala.');
-        }
+        receive(payload);
       };
     }
 
-    startSse();
+    startWebSocket();
 
     return {
       close: function () {
         closed = true;
-        clearOpenTimer();
-        clearRetryTimer();
+        clearTimer('wsOpen');
+        clearTimer('wsRetry');
+        clearTimer('sseOpen');
+        clearTimer('sseRetry');
+        stopWsPing();
         stopPolling();
         stopSse();
+        stopWebSocket();
       }
     };
   }

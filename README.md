@@ -2,11 +2,12 @@
 
 Board de retrospectiva de sprint com **Acertos**, **Melhorias** e uma **dinâmica de adivinhação** — em tempo real, sem cadastro.
 
-![Node](https://img.shields.io/badge/Node.js-18%2B-b6ff5c?style=flat-square) ![Ícones](https://img.shields.io/badge/ícones-Phosphor-5ce1ff?style=flat-square) ![Tempo real](https://img.shields.io/badge/tempo%20real-SSE-ff7ab6?style=flat-square)
+![Node](https://img.shields.io/badge/Node.js-18%2B-b6ff5c?style=flat-square) ![Ícones](https://img.shields.io/badge/ícones-Phosphor-5ce1ff?style=flat-square) ![Tempo real](https://img.shields.io/badge/tempo%20real-WebSocket%20%2B%20SSE-ff7ab6?style=flat-square)
 
 ## Como rodar
 
 ```bash
+npm install
 node server.js
 # ou
 npm start
@@ -18,7 +19,7 @@ Abra **http://localhost:3030**. Para mudar a porta:
 PORT=4000 node server.js
 ```
 
-Não existe etapa de instalação: o projeto usa apenas recursos nativos do Node (`http`, `fs`, `path`, `crypto` e `fetch`) e JavaScript no navegador. Os ícones usam a biblioteca [Phosphor Icons](https://phosphoricons.com/) via CDN. Sem variáveis de ambiente, as salas ficam em memória. Para testar o Firestore localmente, defina `FIREBASE_SERVICE_ACCOUNT` e `FIREBASE_PROJECT_ID` no shell (há um modelo em `.env.example`; o Node não carrega esse arquivo sozinho).
+A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto do backend usa recursos nativos do Node (`http`, `fs`, `path`, `crypto` e `fetch`). Os ícones usam a biblioteca [Phosphor Icons](https://phosphoricons.com/) via CDN. Sem variáveis de ambiente, as salas ficam em memória. Para testar o Firestore localmente, defina `FIREBASE_SERVICE_ACCOUNT` e `FIREBASE_PROJECT_ID` no shell (há um modelo em `.env.example`; o Node não carrega esse arquivo sozinho).
 
 ## O que tem
 
@@ -32,6 +33,7 @@ Não existe etapa de instalação: o projeto usa apenas recursos nativos do Node
 - Crie uma sala (você vira **organizador**) ou entre com o código de 6 caracteres.
 - Link de convite (`/sala/CODIGO`) leva direto para a sala — e pede a identificação se ainda não houver.
 - Presença ao vivo, pessoas conectadas/offline e remoção de participantes pelo organizador.
+- Sincronização por **WebSocket** (`wss://…/ws/rooms/CODIGO?userId=…`); SSE e polling REST entram automaticamente se o proxy bloquear o upgrade.
 - Ao sair, seu lugar é mantido: volte quando quiser usando o código.
 
 ### Acertos e Melhorias
@@ -150,6 +152,7 @@ firestore.rules           bloqueia acesso direto do navegador
 
 - As salas são persistidas no Firestore e expiram após 6 horas sem atividade. O Render pode dormir sem perder os dados; ao acordar, a sala é carregada sob demanda.
 - O painel ADMIN lista todas as salas ainda persistidas, inclusive as expiradas ou gravadas com um formato antigo; abrir uma delas no admin não apaga o documento.
+- No Render, o WebSocket usa a mesma porta do HTTP (`wss://`). O cliente envia um ping a cada 25 s para manter o serviço free ativo e detectar conexões mortas.
 - As fotos ficam em subdocumentos (`rooms/{code}/avatars/{userId}`) para não estourar o limite de 1 MiB do documento principal.
 - O conteúdo dos cards é enviado ao navegador antes da revelação — o desfoque é visual, como pede a experiência. A autoria dos cards **não** é enviada ao navegador; a das respostas da dinâmica só aparece quando o organizador revela cada uma.
 - Fotos são reduzidas para 192 × 192 JPEG no cliente antes de serem enviadas.

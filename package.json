@@ -4,14 +4,15 @@
   "private": true,
   "description": "Board de retrospectiva de sprint com acertos, melhorias, dinâmica de adivinhação e colaboração em tempo real — em tempo real, sem cadastro.",
   "dependencies": {
-    "@phosphor-icons/web": "^2.0.0"
+    "@phosphor-icons/web": "^2.0.0",
+    "ws": "^8.23.0"
   },
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "build": "node --check server.js && node --check lib/firestore.js && node --check lib/store.js && node --check public/assets/js/engine.js && node --check public/assets/js/app.js && node --check public/assets/js/api.js && node --check public/assets/js/config.js && node --check public/assets/js/home.js && node --check public/assets/js/identity.js && node --check public/assets/js/room.js && node --check public/assets/js/ui.js && node --check public/assets/js/admin.js",
-    "test": "node tests/run-node.js && node tests/identity.test.js && node tests/store.test.js && node tests/firestore.test.js && node tests/admin.test.js && node tests/stream-fallback.test.js"
+    "test": "node tests/run-node.js && node tests/identity.test.js && node tests/store.test.js && node tests/firestore.test.js && node tests/admin.test.js && node tests/stream-fallback.test.js && node tests/websocket.test.js"
   },
   "engines": {
     "node": ">=18"
@@ -20,6 +21,7 @@
     "retrospectiva",
     "sprint",
     "retro",
+    "websocket",
     "sse",
     "board"
   ],
