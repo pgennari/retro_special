@@ -44,6 +44,20 @@
       assert.equal(state.isOrganizer, false);
     });
 
+    test('reentrar com o mesmo id reconecta sem criar outro participante', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      var first = engine.joinRoom(room, person('user_bia', 'Bia'));
+      assert.equal(first.isNew, true);
+
+      engine.setConnected(room, 'user_bia', false);
+      var again = engine.joinRoom(room, person('user_bia', 'Bia'));
+      assert.equal(again.ok, true);
+      assert.equal(again.isNew, false);
+      assert.equal(again.user.id, first.user.id);
+      assert.equal(again.user.connected, true);
+      assert.equal(room.users.length, 2);
+    });
+
     test('cards ficam ocultos para os outros até a revelação', function () {
       var room = engine.createRoom(person('user_ana', 'Ana'));
       engine.joinRoom(room, person('user_bia', 'Bia'));

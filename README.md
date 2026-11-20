@@ -25,8 +25,8 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 
 ### Identidade
 - Nome + foto (recortada e comprimida no navegador) ou avatar emoji.
-- O perfil fica salvo no navegador e volta preenchido na próxima visita.
-- **Cada janela/aba é uma pessoa:** abrir outra janela (inclusive anônima) sugere o perfil salvo, mas não entra como a pessoa da primeira janela. A identidade ativa fica no `sessionStorage`; o perfil, no `localStorage`.
+- A identidade fica salva no navegador (`localStorage`): ao fechar e reabrir o browser, a mesma pessoa entra novamente nas salas em que estava.
+- Para entrar como outra pessoa no mesmo navegador, use **trocar pessoa** na tela inicial.
 - Cada pessoa recebe uma cor própria na sala.
 
 ### Sala
@@ -36,7 +36,7 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 - Sincronização por **WebSocket** (`wss://…/ws/rooms/CODIGO?userId=…`); SSE e polling REST entram automaticamente se o proxy bloquear o upgrade.
 - O organizador pode **chamar a turma para a Dinâmica**: quem estiver em outra aba vê o botão da Dinâmica triplicar e sacudir.
 - Na votação, o organizador pode **chamar atenção**: os cards ainda sem palpite sacodem para quem está com votos pendentes.
-- Ao sair, seu lugar é mantido: volte quando quiser usando o código.
+- Ao sair (ou fechar o browser), seu lugar é mantido: volte quando quiser usando o código.
 
 ### Acertos e Melhorias
 - Todos adicionam cards **anônimos** (a autoria não aparece para ninguém); o conteúdo fica **desfocado** até o organizador revelar o bloco.
@@ -67,8 +67,8 @@ Sem servidor, abra `public/index.html` direto no navegador (`file://`) ou adicio
 
 - as salas ficam no `localStorage`;
 - a sincronização entre abas usa `BroadcastChannel` (com fallback para o evento `storage`);
-- a identidade usa `sessionStorage`, então **cada aba pode ser uma pessoa diferente**;
-- abra duas abas para testar a colaboração e a dinâmica completa.
+- a identidade também fica no `localStorage`, então as abas começam com a mesma pessoa;
+- use **trocar pessoa** em uma das abas para simular outra participante.
 
 O modo demo é ótimo para experimentar, mas não persiste entre navegadores nem entre dispositivos.
 

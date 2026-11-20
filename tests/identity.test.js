@@ -1,6 +1,6 @@
 /*
- * Identidade por janela: simula abas/janelas com localStorage compartilhado
- * e sessionStorage independente (como duas janelas anônimas do Chrome).
+ * Identidade persistente: simula abrir uma nova aba/janela com o mesmo
+ * localStorage (como acontece ao fechar e reabrir o browser).
  *
  * Roda com Node: node tests/identity.test.js
  */
@@ -13,6 +13,8 @@ const vm = require('vm');
 const { webcrypto } = require('crypto');
 
 const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'public', 'assets', 'js', 'identity.js'), 'utf8');
+const STORAGE_KEY = 'retro-special:identity:v1';
+const LEGACY_KEY = 'retro-special:session:v1';
 const results = [];
 
 function test(name, fn) {
@@ -49,11 +51,10 @@ function createStorage() {
 }
 
 function createTab(localStorage, sessionStorage) {
-  const session = sessionStorage || createStorage();
   const retro = {};
   const window = {
     localStorage,
-    sessionStorage: session,
+    sessionStorage: sessionStorage || createStorage(),
     crypto: webcrypto,
     Retro: retro
   };
@@ -67,111 +68,112 @@ function createTab(localStorage, sessionStorage) {
   };
   vm.createContext(context);
   vm.runInContext(SOURCE, context, { filename: 'identity.js' });
-  return { identity: context.Retro.identity, session };
+  return context.Retro.identity;
 }
 
-test('primeira janela começa sem identidade ativa e com id novo', () => {
-  const local = createStorage();
-  const tab = createTab(local);
-  const identity = tab.identity.load();
-  assert.ok(identity.id, 'deveria gerar um id');
-  assert.strictEqual(identity.name, '');
-  assert.strictEqual(tab.identity.isActive(), false);
+test('primeira visita começa sem identidade ativa e com id novo', () => {
+  const identity = createTab(createStorage());
+  const value = identity.load();
+  assert.ok(value.id, 'deveria gerar um id');
+  assert.strictEqual(value.name, '');
+  assert.strictEqual(identity.isActive(), false);
 });
 
-test('confirmar o nome ativa a identidade apenas naquela janela', () => {
+test('confirmar o nome salva a identidade no navegador', () => {
   const local = createStorage();
-  const tab = createTab(local);
-  tab.identity.setName('Ana');
-  assert.strictEqual(tab.identity.isActive(), true);
-  assert.strictEqual(tab.identity.load().name, 'Ana');
+  const identity = createTab(local);
+  identity.setName('Ana');
+
+  assert.strictEqual(identity.isActive(), true);
+  const saved = JSON.parse(local.getItem(STORAGE_KEY));
+  assert.strictEqual(saved.id, identity.load().id);
+  assert.strictEqual(saved.name, 'Ana');
 });
 
-test('segunda janela herda só o perfil, nunca o id da primeira', () => {
+test('fechar o browser e abrir a mesma sala reconecta com o mesmo id', () => {
   const local = createStorage();
   const first = createTab(local);
-  first.identity.setName('Ana');
-  const ana = first.identity.load();
+  first.setName('Ana');
+  const id = first.load().id;
+
+  const reopened = createTab(local);
+  assert.strictEqual(reopened.load().id, id);
+  assert.strictEqual(reopened.load().name, 'Ana');
+  assert.strictEqual(reopened.isActive(), true);
+});
+
+test('nova aba começa com a mesma identidade salva', () => {
+  const local = createStorage();
+  const first = createTab(local);
+  first.setName('Ana');
 
   const second = createTab(local);
-  const suggested = second.identity.load();
-  assert.strictEqual(suggested.name, 'Ana', 'o nome deve vir preenchido como sugestão');
-  assert.notStrictEqual(suggested.id, ana.id, 'o id da segunda janela deve ser diferente');
-  assert.strictEqual(second.identity.isActive(), false, 'a segunda janela não deve entrar logada');
+  assert.strictEqual(second.load().id, first.load().id);
+  assert.strictEqual(second.load().name, 'Ana');
+  assert.strictEqual(second.isActive(), true);
 });
 
-test('cada janela confirma sua própria pessoa e a sala vê participantes distintos', () => {
+test('editar o nome mantém o id da pessoa', () => {
   const local = createStorage();
-  const first = createTab(local);
-  first.identity.setName('Ana');
+  const identity = createTab(local);
+  identity.setName('Ana');
+  const id = identity.load().id;
 
-  const second = createTab(local);
-  second.identity.setName('Bruno');
+  identity.setName('Ana Souza');
+  assert.strictEqual(identity.load().id, id);
 
-  assert.strictEqual(first.identity.load().name, 'Ana');
-  assert.strictEqual(second.identity.load().name, 'Bruno');
-  assert.notStrictEqual(first.identity.load().id, second.identity.load().id);
+  const reopened = createTab(local);
+  assert.strictEqual(reopened.load().id, id);
+  assert.strictEqual(reopened.load().name, 'Ana Souza');
 });
 
-test('recarregar a mesma janela mantém a pessoa ativa', () => {
+test('trocar pessoa gera novo id e pede o nome antes de salvar', () => {
   const local = createStorage();
-  const tab = createTab(local);
-  tab.identity.setName('Ana');
-  const id = tab.identity.load().id;
+  const identity = createTab(local);
+  identity.setName('Ana');
+  const anaId = identity.load().id;
 
-  const reloaded = createTab(local, tab.session);
-  assert.strictEqual(reloaded.identity.load().id, id);
-  assert.strictEqual(reloaded.identity.load().name, 'Ana');
-  assert.strictEqual(reloaded.identity.isActive(), true);
+  const changed = identity.startNewPerson();
+  assert.notStrictEqual(changed.id, anaId);
+  assert.strictEqual(changed.name, '');
+  assert.strictEqual(identity.isActive(), false, 'não deve entrar sem confirmar o nome');
+
+  identity.setName('Bruno');
+  assert.strictEqual(identity.load().id, changed.id);
+
+  const reopened = createTab(local);
+  assert.strictEqual(reopened.load().id, changed.id);
+  assert.strictEqual(reopened.load().name, 'Bruno');
 });
 
-test('"outra pessoa" troca o id só daquela janela', () => {
+test('identidade antiga do sessionStorage é migrada para o localStorage', () => {
   const local = createStorage();
-  const first = createTab(local);
-  first.identity.setName('Ana');
-  const anaId = first.identity.load().id;
+  const legacy = createStorage();
+  legacy.setItem(LEGACY_KEY, JSON.stringify({
+    id: 'user_legacy123',
+    name: 'Ana',
+    avatar: { kind: 'emoji', value: '🦊', bg: 'linear-gradient(135deg,#ff7ab6,#7b2cff)' }
+  }));
 
-  const second = createTab(local);
-  second.identity.setName('Bruno');
-  const brunoId = second.identity.load().id;
+  const identity = createTab(local, legacy);
+  assert.strictEqual(identity.load().id, 'user_legacy123');
+  assert.strictEqual(JSON.parse(local.getItem(STORAGE_KEY)).name, 'Ana');
 
-  const outra = first.identity.startNewPerson();
-  assert.notStrictEqual(outra.id, anaId);
-  assert.strictEqual(outra.name, '');
-  assert.strictEqual(second.identity.load().id, brunoId, 'a outra janela não pode mudar');
-
-  first.identity.setName('Carla');
-  assert.strictEqual(second.identity.load().name, 'Bruno');
-  assert.strictEqual(first.identity.load().name, 'Carla');
+  const reopened = createTab(local);
+  assert.strictEqual(reopened.load().id, 'user_legacy123');
+  assert.strictEqual(reopened.isActive(), true);
 });
 
-test('nova janela depois de "outra pessoa" sugere o perfil mais recente', () => {
-  const local = createStorage();
-  const first = createTab(local);
-  first.identity.setName('Ana');
-  first.identity.startNewPerson();
-  first.identity.setName('Carla');
-
-  const third = createTab(local);
-  const suggested = third.identity.load();
-  assert.strictEqual(suggested.name, 'Carla');
-  assert.notStrictEqual(suggested.id, first.identity.load().id);
-  assert.strictEqual(third.identity.isActive(), false);
-});
-
-test('sem sessionStorage o app continua funcionando com o perfil local', () => {
-  const local = createStorage();
+test('sem localStorage o app continua funcionando em memória', () => {
   const blocked = {
     getItem() { throw new Error('bloqueado'); },
     setItem() { throw new Error('bloqueado'); },
     removeItem() { throw new Error('bloqueado'); }
   };
-  const first = createTab(local);
-  first.identity.setName('Ana');
-
-  const tab = createTab(local, blocked);
-  assert.strictEqual(tab.identity.load().name, 'Ana');
-  assert.strictEqual(tab.identity.isActive(), true);
+  const identity = createTab(blocked);
+  identity.setName('Ana');
+  assert.strictEqual(identity.load().name, 'Ana');
+  assert.strictEqual(identity.isActive(), true);
 });
 
 const failed = results.filter((result) => !result.ok);

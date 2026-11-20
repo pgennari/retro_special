@@ -22,7 +22,6 @@
     els.photoInput = document.getElementById('photo-input');
     els.identityContinue = document.getElementById('identity-continue');
     els.continueLabel = document.getElementById('continue-label');
-    els.identityWindowNote = document.getElementById('identity-window-note');
     els.changeIdentity = document.getElementById('change-identity');
     els.newPerson = document.getElementById('new-person');
     els.createRoomBtn = document.getElementById('create-room-btn');
@@ -81,7 +80,6 @@
     var value = identity.load();
     renderAvatar(value);
     setStep('identity');
-    els.identityWindowNote.hidden = !(!identity.isActive() && identity.hasSavedProfile());
     els.inviteBanner.hidden = !pendingCode;
     if (pendingCode) els.inviteCode.textContent = pendingCode;
     if (focus) {
@@ -225,7 +223,7 @@
     els.newPerson.addEventListener('click', function () {
       identity.startNewPerson();
       showIdentityStep(true);
-      ui.toast('Esta janela agora é outra pessoa. As outras janelas não mudam.', 'success');
+      ui.toast('Agora você vai entrar como outra pessoa. Ao fechar o navegador, esta identidade continua salva.', 'success');
     });
 
     els.createRoomBtn.addEventListener('click', createRoom);

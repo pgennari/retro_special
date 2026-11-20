@@ -4,12 +4,11 @@
 
   window.Retro = window.Retro || {};
 
-  // Perfil salvo no navegador (preenche a próxima visita) e identidade ativa
-  // da janela atual. A identidade ativa fica no sessionStorage: cada aba/janela
-  // é uma pessoa diferente, mesmo em janelas anônimas que compartilham o
-  // localStorage.
+  // Identidade ativa persistida no navegador: ao fechar e reabrir o browser,
+  // a mesma pessoa entra novamente nas salas em que estava. A chave de sessão
+  // antiga é lida apenas uma vez, para migrar quem já usava o app.
   var PROFILE_KEY = 'retro-special:identity:v1';
-  var SESSION_KEY = 'retro-special:session:v1';
+  var LEGACY_SESSION_KEY = 'retro-special:session:v1';
   var PHOTO_RE = /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
   var ID_RE = /^[A-Za-z0-9_-]{6,80}$/;
 
@@ -115,44 +114,30 @@
 
   function save(identity) {
     cached = identity;
-    cachedActive = true;
-    var sessionStore = safeStorage('session');
-    var localStore = safeStorage('local');
-    writeStored(sessionStore, SESSION_KEY, identity);
-    // o perfil guarda apenas nome/avatar/id para preencher a próxima visita
-    writeStored(localStore, PROFILE_KEY, identity);
+    cachedActive = !!identity.name;
+    writeStored(safeStorage('local'), PROFILE_KEY, identity);
     return identity;
   }
 
   function load() {
     if (cached) return cached;
 
-    var sessionStore = safeStorage('session');
-    var active = readStored(sessionStore, SESSION_KEY);
-    if (active) {
-      cached = normalizeIdentity(active, generateId());
-      cachedActive = true;
-      return cached;
-    }
-
     var localStore = safeStorage('local');
-    var profile = readStored(localStore, PROFILE_KEY);
+    var saved = readStored(localStore, PROFILE_KEY);
 
-    // sem sessionStorage (navegador antigo/bloqueado): mantém o comportamento
-    // antigo para o app continuar funcionando.
-    if (!sessionStore && profile) {
-      cached = normalizeIdentity(profile, generateId());
-      cachedActive = true;
+    // migra a identidade ativa de versões que usavam sessionStorage
+    if (!saved) {
+      saved = readStored(safeStorage('session'), LEGACY_SESSION_KEY);
+      if (saved) writeStored(localStore, PROFILE_KEY, saved);
+    }
+
+    if (saved) {
+      cached = normalizeIdentity(saved, generateId());
+      cachedActive = !!cached.name;
       return cached;
     }
 
-    // janela nova: começa um participante novo, mas sugere o nome/avatar do
-    // perfil salvo. Só entra de fato quando a pessoa confirma.
-    cached = {
-      id: generateId(),
-      name: profile ? cleanName(profile.name) : '',
-      avatar: (profile && sanitizeAvatar(profile.avatar)) || defaultAvatar()
-    };
+    cached = { id: generateId(), name: '', avatar: defaultAvatar() };
     cachedActive = false;
     return cached;
   }
@@ -175,11 +160,11 @@
     return !!(parsed && (cleanName(parsed.name) || sanitizeAvatar(parsed.avatar)));
   }
 
-  // Troca a pessoa desta janela sem mexer no perfil salvo nem nas outras abas.
+  // Troca a pessoa deste navegador. O novo id só é salvo quando a pessoa
+  // confirma o nome, para não perder a identidade atual ao desistir da troca.
   function startNewPerson() {
     cached = { id: generateId(), name: '', avatar: defaultAvatar() };
-    cachedActive = true;
-    writeStored(safeStorage('session'), SESSION_KEY, cached);
+    cachedActive = false;
     return cached;
   }
 
