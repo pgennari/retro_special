@@ -123,6 +123,7 @@
     refs.headerUserName = document.getElementById('header-user-name');
     refs.presentingSwitch = document.getElementById('presenting-switch');
     refs.presentingCheckbox = document.getElementById('presenting-checkbox');
+    refs.exportPdfBtn = document.getElementById('export-pdf-btn');
     refs.leaveBtn = document.getElementById('leave-btn');
     refs.phase = document.getElementById('dynamics-phase');
     refs.extra = document.getElementById('dynamics-extra');
@@ -169,6 +170,7 @@
     });
 
     refs.codeChip.addEventListener('click', copyRoomLink);
+    if (refs.exportPdfBtn) refs.exportPdfBtn.addEventListener('click', exportPdf);
     refs.leaveBtn.addEventListener('click', leaveRoom);
     if (refs.presentingCheckbox) refs.presentingCheckbox.addEventListener('change', togglePresenting);
     refs.peopleBtn.addEventListener('click', togglePeople);
@@ -304,6 +306,57 @@
     ui.copyText(url).then(function (ok) {
       ui.toast(ok ? 'Link da sala copiado! Mande para o time.' : 'Não consegui copiar. Copie o endereço da página.', ok ? 'success' : 'error');
     });
+  }
+
+  function exportPdf() {
+    if (!current || !currentCode || !Retro.pdf) return;
+    try {
+      var now = new Date();
+      var generatedAt = typeof now.toLocaleString === 'function'
+        ? now.toLocaleString('pt-BR')
+        : String(now);
+      var columns = ['acertos', 'melhorias'].map(function (key) {
+        var column = current[key] || { cards: [] };
+        var cards = (column.cards || []).slice();
+        if (key === 'acertos') {
+          cards.sort(function (a, b) { return (b.likeCount || 0) - (a.likeCount || 0); });
+        }
+        return {
+          key: key,
+          title: COLUMN_LABELS[key],
+          revealed: !!column.revealed,
+          cards: cards.map(function (card) {
+            var plan = card.actionPlan || { text: '', assignees: [] };
+            return {
+              hidden: !card.canRead,
+              text: card.text || '',
+              likes: card.likeCount || 0,
+              planText: card.canRead ? (plan.text || '') : '',
+              assignees: card.canRead
+                ? (plan.assignees || []).map(function (userId) {
+                  var user = findUser(userId);
+                  return user ? user.name : 'Participante';
+                })
+                : []
+            };
+          })
+        };
+      });
+
+      var stamp = now.getFullYear() + '-' + padDate(now.getMonth() + 1) + '-' + padDate(now.getDate());
+      Retro.pdf.download({
+        code: currentCode,
+        generatedAt: generatedAt,
+        columns: columns
+      }, 'retro-special-' + currentCode + '-' + stamp + '.pdf');
+      ui.toast('PDF gerado com os cards da sala.', 'success');
+    } catch (error) {
+      ui.toast('Não consegui gerar o PDF. Tente novamente.', 'error');
+    }
+  }
+
+  function padDate(value) {
+    return value < 10 ? '0' + value : String(value);
   }
 
   function leaveRoom() {
