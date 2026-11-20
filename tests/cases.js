@@ -109,6 +109,28 @@
       });
     });
 
+    test('após a revelação somente o organizador pode remover cards', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+      var add = engine.applyAction(room, 'user_bia', 'card:add', { column: 'acertos', text: 'Card da Bia' });
+      assert.ok(add.ok);
+      assert.equal(engine.getState(room, 'user_bia').acertos.cards[0].canRemove, true);
+
+      assert.ok(engine.applyAction(room, 'user_ana', 'column:reveal', { column: 'acertos' }).ok);
+
+      var denied = engine.applyAction(room, 'user_bia', 'card:remove', {
+        column: 'acertos', cardId: add.event.cardId
+      });
+      assert.ok(!denied.ok);
+      assert.equal(engine.getState(room, 'user_bia').acertos.cards[0].canRemove, false);
+      assert.equal(engine.getState(room, 'user_ana').acertos.cards[0].canRemove, true);
+
+      assert.ok(engine.applyAction(room, 'user_ana', 'card:remove', {
+        column: 'acertos', cardId: add.event.cardId
+      }).ok);
+      assert.equal(engine.getState(room, 'user_bia').acertos.cards.length, 0);
+    });
+
     test('plano de ação exige revelação e valida responsáveis', function () {
       var room = engine.createRoom(person('user_ana', 'Ana'));
       engine.joinRoom(room, person('user_bia', 'Bia'));

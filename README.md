@@ -41,7 +41,7 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 
 ### Acertos e Melhorias
 - Todos adicionam cards **anônimos** (a autoria não aparece para ninguém); o conteúdo fica **oculto** até o organizador revelar o bloco. Texto, plano de ação e responsáveis não são enviados ao cliente nem entram no DOM antes da revelação.
-- Depois da revelação, os cards ganham **joinhas** (👍) com animação e esquentam conforme recebem votos.
+- Depois da revelação, os cards ganham **joinhas** (👍) com animação e esquentam conforme recebem votos. A partir daí, somente o organizador pode remover cards.
 - Em Melhorias, o organizador define um **plano de ação** por card e escolhe os responsáveis.
 
 ### Administração

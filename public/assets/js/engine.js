@@ -364,7 +364,11 @@
         if (!column) return { ok: false, error: 'Bloco inválido.' };
         card = findCard(column, payload.cardId);
         if (!card) return { ok: false, error: 'Card não encontrado.' };
-        if (card.authorId !== userId && !isOrganizer(room, userId)) {
+        var org = isOrganizer(room, userId);
+        if (!org && column.revealed) {
+          return { ok: false, error: 'Somente o organizador pode remover cards após a revelação.' };
+        }
+        if (!org && card.authorId !== userId) {
           return { ok: false, error: 'Você só pode remover os seus cards.' };
         }
         column.cards = column.cards.filter(function (item) { return item.id !== card.id; });
@@ -873,7 +877,7 @@
           likeCount: card.likes.length,
           likedByMe: card.likes.indexOf(viewerId) !== -1,
           canRead: canRead,
-          canRemove: card.authorId === viewerId || isOrg,
+          canRemove: isOrg || (!column.revealed && card.authorId === viewerId),
           isMine: card.authorId === viewerId,
           actionPlan: {
             text: canRead ? card.actionPlan.text : '',
