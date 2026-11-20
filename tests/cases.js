@@ -147,6 +147,10 @@
       assert.equal(state.dynamics.voting.pending.length, 2);
       assert.ok(state.dynamics.attention);
       assert.equal(state.dynamics.attention.by, 'user_ana');
+
+      var again = engine.applyAction(room, 'user_ana', 'dynamics:attention', {});
+      assert.ok(again.ok);
+      assert.notEqual(again.event.attentionId, attention.event.attentionId);
     });
 
     test('dinâmica completa: pergunta, respostas ocultas, embaralhamento, votos e placar', function () {

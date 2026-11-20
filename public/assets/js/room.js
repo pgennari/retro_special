@@ -415,16 +415,20 @@
     currentUserId = next.viewerId;
 
     // O chamado também vai no estado, para quem estiver no fallback por polling.
+    // As animações são disparadas depois do render, senão o innerHTML novo
+    // descarta as classes aplicadas nos elementos antigos.
     var dynamicsCall = next.dynamics && next.dynamics.call;
     var attention = next.dynamics && next.dynamics.attention;
+    var pendingCall = null;
+    var pendingAttention = null;
     if (options.force) {
       dynamicsCallReady = true;
       lastDynamicsCallId = dynamicsCall ? dynamicsCall.id : null;
       attentionReady = true;
       lastAttentionId = attention ? attention.id : null;
     } else {
-      if (dynamicsCall && dynamicsCallReady) receiveDynamicsCall(dynamicsCall.id, dynamicsCall.by);
-      if (attention && attentionReady) receiveDynamicsAttention(attention.id, attention.by);
+      if (dynamicsCall && dynamicsCallReady && dynamicsCall.id !== lastDynamicsCallId) pendingCall = dynamicsCall;
+      if (attention && attentionReady && attention.id !== lastAttentionId) pendingAttention = attention;
     }
 
     if (previous && previous.dynamics.round !== next.dynamics.round) {
@@ -472,6 +476,8 @@
     lastRound = next.dynamics.round;
 
     renderAll();
+    if (pendingCall) receiveDynamicsCall(pendingCall.id, pendingCall.by);
+    if (pendingAttention) receiveDynamicsAttention(pendingAttention.id, pendingAttention.by);
   }
 
   function resetRoomUi(code) {
@@ -1789,7 +1795,7 @@
   function receiveDynamicsAttention(attentionId, actorId) {
     if (!attentionId || attentionId === lastAttentionId) return;
     lastAttentionId = attentionId;
-    if (actorId === currentUserId || !current || current.dynamics.phase !== 'voting') return;
+    if (!current || current.dynamics.phase !== 'voting') return;
 
     var pending = (current.dynamics.voting && current.dynamics.voting.pending) || [];
     var isPending = pending.some(function (person) { return person.id === currentUserId; });
@@ -1803,7 +1809,9 @@
       card.classList.add('is-attention');
       later(function () { card.classList.remove('is-attention'); }, 2200);
     });
-    ui.toast('O organizador está chamando a atenção para os palpites pendentes.');
+    ui.toast(actorId === currentUserId
+      ? 'Aviso enviado aos votos pendentes.'
+      : 'O organizador está chamando a atenção para os palpites pendentes.');
   }
 
   function animateLike(event) {
