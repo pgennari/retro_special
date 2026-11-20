@@ -30,6 +30,8 @@
   var activeTab = 'acertos';
 
   var drafts = { acertos: '', melhorias: '', answer: '', question: '' };
+  // Ordem importa: o primeiro id selecionado vira o card base da mesclagem.
+  var mergeSelection = { acertos: [], melhorias: [] };
   var answerDirty = false;
   var questionDirty = false;
   var selectedTarget = null;
@@ -107,6 +109,7 @@
     refs.roomCode = document.getElementById('room-code');
     refs.footerCode = document.getElementById('footer-code');
     refs.orgBadge = document.getElementById('org-badge');
+    refs.modBadge = document.getElementById('mod-badge');
     refs.tabs = document.getElementById('room-tabs');
     refs.livePill = document.getElementById('live-pill');
     refs.liveText = document.getElementById('live-text');
@@ -179,6 +182,7 @@
     refs.tabs.addEventListener('keydown', handleTabKeydown);
 
     refs.board.addEventListener('click', handleBoardClick);
+    refs.board.addEventListener('change', handleBoardChange);
 
     refs.extra.addEventListener('click', handleDynamicsClick);
     refs.dynamicsBody.addEventListener('click', handleDynamicsClick);
@@ -310,6 +314,7 @@
 
   function exportPdf() {
     if (!current || !currentCode || !Retro.pdf) return;
+    if (!current.isOrganizer && !current.isModerator) return;
     try {
       var now = new Date();
       var generatedAt = typeof now.toLocaleString === 'function'
@@ -538,6 +543,9 @@
     refs.footerCode.textContent = code;
     refs.peopleBtn.setAttribute('aria-label', 'Pessoas na sala (0)');
     if (refs.orgBadge) refs.orgBadge.hidden = true;
+    if (refs.modBadge) refs.modBadge.hidden = true;
+    if (refs.exportPdfBtn) refs.exportPdfBtn.hidden = true;
+    mergeSelection = { acertos: [], melhorias: [] };
     if (refs.headerUser) refs.headerUser.hidden = true;
     presenting = false;
     activeTab = 'acertos';
@@ -606,6 +614,8 @@
     refs.roomCode.textContent = current.code;
     refs.footerCode.textContent = current.code;
     if (refs.orgBadge) refs.orgBadge.hidden = !current.isOrganizer;
+    if (refs.modBadge) refs.modBadge.hidden = !current.isModerator;
+    if (refs.exportPdfBtn) refs.exportPdfBtn.hidden = !current.canModerate;
     if (refs.presentingSwitch) {
       refs.presentingSwitch.hidden = !current.isOrganizer;
       if (refs.presentingCheckbox) refs.presentingCheckbox.checked = presenting;
@@ -615,6 +625,7 @@
     var users = current.users.slice().sort(function (a, b) {
       if (a.connected !== b.connected) return a.connected ? -1 : 1;
       if (a.isOrganizer !== b.isOrganizer) return a.isOrganizer ? -1 : 1;
+      if (!!a.isModerator !== !!b.isModerator) return a.isModerator ? -1 : 1;
       return (a.joinedAt || 0) - (b.joinedAt || 0);
     });
 
@@ -659,6 +670,7 @@
     var users = current.users.slice().sort(function (a, b) {
       if (a.connected !== b.connected) return a.connected ? -1 : 1;
       if (a.isOrganizer !== b.isOrganizer) return a.isOrganizer ? -1 : 1;
+      if (!!a.isModerator !== !!b.isModerator) return a.isModerator ? -1 : 1;
       return (a.joinedAt || 0) - (b.joinedAt || 0);
     });
 
@@ -666,7 +678,17 @@
       var badges = '';
       if (user.id === currentUserId) badges += '<span class="mini-badge">você</span>';
       if (user.isOrganizer) badges += '<span class="mini-badge org">org</span>';
+      else if (user.isModerator) badges += '<span class="mini-badge mod">mod</span>';
       if (!user.connected) badges += '<span class="mini-badge off">off</span>';
+
+      var modLabel = user.isModerator ? 'Remover papel de moderador' : 'Tornar moderador';
+      var canToggleMod = current.isOrganizer && !user.isOrganizer && user.id !== currentUserId &&
+        (user.isModerator || user.connected);
+      var modBtn = canToggleMod
+        ? '<button class="mod-btn" type="button" data-mod-toggle="' + esc(user.id) + '" ' +
+          'title="' + modLabel + '" aria-label="' + modLabel + '">' +
+          (user.isModerator ? '☆' : '★') + '</button>'
+        : '';
       var kick = canKick && user.id !== currentUserId
         ? '<button class="kick-btn" type="button" data-kick="' + esc(user.id) + '" title="Remover ' + esc(user.name) + ' da sala">✕</button>'
         : '';
@@ -674,6 +696,7 @@
         ui.userAvatar(user, { size: 27, ring: user.connected ? user.color : false }) +
         '<span class="person-name">' + esc(user.name) + '</span>' +
         '<span class="person-badges">' + badges + '</span>' +
+        modBtn +
         kick +
         '</li>';
     }).join('');
@@ -708,8 +731,20 @@
       cards.sort(function (a, b) { return (b.likeCount || 0) - (a.likeCount || 0); });
     }
 
+    var availableIds = {};
+    cards.forEach(function (card) { availableIds[card.id] = true; });
+    if (!column.canMerge) mergeSelection[key] = [];
+    else mergeSelection[key] = (mergeSelection[key] || []).filter(function (id) { return !!availableIds[id]; });
+    var selectedIds = mergeSelection[key];
+
     if (column.revealed) {
-      panel.action.innerHTML = '<span class="state-pill revealed">✓ revelado</span>';
+      var actionHTML = '<span class="state-pill revealed">✓ revelado</span>';
+      if (column.canMerge) {
+        actionHTML += '<button class="btn btn-secondary btn-small" type="button" data-action="merge-cards" ' +
+          (selectedIds.length >= 2 ? '' : 'disabled title="Selecione pelo menos 2 cards"') +
+          '>🔗 Mesclar (' + selectedIds.length + ')</button>';
+      }
+      panel.action.innerHTML = actionHTML;
     } else if (current.isOrganizer) {
       panel.action.innerHTML = '<button class="btn btn-reveal" type="button" data-action="reveal-column" ' +
         (column.cards.length ? '' : 'disabled title="Adicione pelo menos um card primeiro"') +
@@ -726,11 +761,11 @@
     }
 
     panel.cards.innerHTML = cards.map(function (card) {
-      return cardHTML(key, card, column);
+      return cardHTML(key, card, column, selectedIds.indexOf(card.id) !== -1);
     }).join('');
   }
 
-  function cardHTML(key, card, column) {
+  function cardHTML(key, card, column, isMergeSelected) {
     var heat = Math.min(card.likeCount, 8);
     var heatClass = heat === 0 ? '' : (heat <= 2 ? ' heat-1' : heat <= 4 ? ' heat-2' : heat <= 6 ? ' heat-3' : ' heat-4');
     var isLocked = !card.canRead;
@@ -755,6 +790,13 @@
         'title="' + (card.likedByMe ? 'Remover joinha' : 'Dar joinha') + '">' +
         '<span class="like-ico" aria-hidden="true">👍</span><span class="like-count">' + card.likeCount + '</span>' +
         '</button>';
+    }
+
+    var mergeHTML = '';
+    if (column.canMerge) {
+      mergeHTML = '<label class="merge-pick" title="Selecionar para mesclar">' +
+        '<input type="checkbox" data-merge-select="' + esc(card.id) + '"' + (isMergeSelected ? ' checked' : '') + '>' +
+        '<span>mesclar</span></label>';
     }
 
     var planHTML = '';
@@ -786,14 +828,17 @@
       }
     }
 
-    return '<article class="card column-' + key + (isLocked ? ' is-locked' : '') + (showMine ? ' is-mine' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
+    return '<article class="card column-' + key + (isLocked ? ' is-locked' : '') + (showMine ? ' is-mine' : '') +
+      (isMergeSelected ? ' is-merge-picked' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
       removeHTML +
       mineBadge +
       // Card oculto não recebe o texto no DOM: blurred text ainda é lido no DevTools.
       (isLocked ? '' : '<p class="card-text">' + esc(card.text) + '</p>') +
       (isLocked ? '<div class="card-lock">🔒 <b>conteúdo oculto</b> · o organizador revela para todos</div>' : '') +
       planHTML +
-      (likeHTML ? '<div class="card-foot"><div class="card-actions">' + likeHTML + '</div></div>' : '') +
+      ((likeHTML || mergeHTML)
+        ? '<div class="card-foot"><div class="card-actions">' + mergeHTML + likeHTML + '</div></div>'
+        : '') +
       '</article>';
   }
 
@@ -1545,7 +1590,48 @@
    * eventos de interface
    * ------------------------------------------------------------------ */
 
+  function handleBoardChange(event) {
+    var pick = event.target.closest('[data-merge-select]');
+    if (!pick) return;
+    var panel = pick.closest('[data-panel]');
+    var key = panel ? panel.getAttribute('data-panel') : '';
+    if (!current || !current[key] || !current[key].canMerge) return;
+
+    var cardId = pick.getAttribute('data-merge-select');
+    var selected = mergeSelection[key] || (mergeSelection[key] = []);
+    var index = selected.indexOf(cardId);
+    if (pick.checked && index === -1) selected.push(cardId);
+    if (!pick.checked && index !== -1) selected.splice(index, 1);
+    renderColumn(key);
+  }
+
   function handleBoardClick(event) {
+    var merge = event.target.closest('[data-action="merge-cards"]');
+    if (merge) {
+      var mergePanel = merge.closest('[data-panel]');
+      var mergeColumn = mergePanel ? mergePanel.getAttribute('data-panel') : '';
+      if (!mergeColumn || !current || !current[mergeColumn] || !current[mergeColumn].canMerge) return;
+      var ids = (mergeSelection[mergeColumn] || []).slice();
+      if (ids.length < 2) return;
+      ui.confirmDialog({
+        title: 'Mesclar ' + ids.length + ' cards?',
+        message: 'Os textos, joinhas e planos serão combinados no primeiro card selecionado. Os demais serão removidos.',
+        confirmLabel: 'Mesclar'
+      }).then(function (ok) {
+        if (!ok) return;
+        runAction('card:merge', {
+          column: mergeColumn,
+          cardId: ids[0],
+          sourceIds: ids.slice(1)
+        }, { lockKey: 'merge-' + mergeColumn }).then(function (done) {
+          if (!done) return;
+          mergeSelection[mergeColumn] = [];
+          renderColumn(mergeColumn);
+        });
+      });
+      return;
+    }
+
     var reveal = event.target.closest('[data-action="reveal-column"]');
     if (reveal) {
       var panel = reveal.closest('[data-panel]');
@@ -1659,6 +1745,19 @@
   }
 
   function handlePeopleClick(event) {
+    var modToggle = event.target.closest('[data-mod-toggle]');
+    if (modToggle) {
+      var modId = modToggle.getAttribute('data-mod-toggle');
+      var modTarget = findUser(modId);
+      if (!modTarget || !current || !current.isOrganizer) return;
+      var promote = !modTarget.isModerator;
+      runAction('room:setModerator', { userId: modId, moderator: promote }, { lockKey: 'mod-' + modId })
+        .then(function (ok) {
+          if (ok) ui.toast(promote ? modTarget.name + ' agora é moderador(a).' : modTarget.name + ' não é mais moderador(a).', 'success');
+        });
+      return;
+    }
+
     var kick = event.target.closest('[data-kick]');
     if (!kick) return;
     var userId = kick.getAttribute('data-kick');
@@ -1824,6 +1923,12 @@
       if (joined && joined.id !== currentUserId) {
         ui.toast(joined.name + ' entrou na sala.', 'success');
       }
+    } else if (event.kind === 'cards-merged') {
+      if (event.actorId !== currentUserId) ui.toast('Um moderador mesclou cards em ' + COLUMN_LABELS[event.column] + '.', 'success');
+    } else if (event.kind === 'moderator-changed' && event.userId === currentUserId) {
+      ui.toast(event.moderator
+        ? 'Você agora é moderador(a) da sala.'
+        : 'Você não é mais moderador(a) da sala.', 'success');
     } else if (event.kind === 'dynamics-reset') {
       // o toast de confirmação é local; para os outros, um aviso leve
       if (event.actorId !== currentUserId) ui.toast('Uma nova fase começou.', 'success');

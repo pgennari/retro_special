@@ -1057,6 +1057,8 @@ img { max-width: 100%; }
   box-shadow: 2px 2px 0 var(--border);
 }
 
+.org-badge.mod-badge { background: var(--teal-soft); color: var(--teal); }
+
 .live-pill {
   display: inline-flex;
   align-items: center;
@@ -1282,9 +1284,11 @@ img { max-width: 100%; }
 }
 
 .mini-badge.org { background: var(--yellow); color: var(--ink-strong); border-color: var(--border); }
+.mini-badge.mod { background: var(--teal-soft); color: var(--teal); border-color: var(--teal); }
 .mini-badge.off { color: var(--muted-2); }
 
-.kick-btn {
+.kick-btn,
+.mod-btn {
   padding: 3px 6px;
   border: 1.5px solid transparent;
   border-radius: 6px;
@@ -1294,6 +1298,9 @@ img { max-width: 100%; }
 }
 
 .kick-btn:hover { color: var(--danger); background: var(--red-soft); border-color: var(--border); }
+
+.mod-btn { color: var(--teal); font-size: 13px; }
+.mod-btn:hover { color: #fffdf7; background: var(--teal); border-color: var(--border); }
 
 .pop-hint { margin: 10px 2px 0; color: var(--muted); font-size: 10.5px; line-height: 1.45; }
 
@@ -1793,6 +1800,25 @@ img { max-width: 100%; }
 }
 
 .card-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+
+.merge-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1.5px dashed var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.merge-pick input { width: 13px; height: 13px; margin: 0; accent-color: var(--teal); cursor: pointer; }
+.merge-pick:has(input:checked) { background: var(--teal-soft); color: var(--teal); border-style: solid; }
+
+.card.is-merge-picked { border-color: var(--teal); box-shadow: 6px 6px 0 var(--teal); }
 
 .icon-btn {
   width: 27px;

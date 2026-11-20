@@ -16,6 +16,8 @@
   var CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   var MAX_USERS = 30;
   var MAX_CARDS = 100;
+  var MAX_MERGED_TEXT = 2400;
+  var MAX_MERGED_PLAN = 1200;
   var ROWS = { acertos: true, melhorias: true };
 
   var USER_COLORS = [
@@ -85,6 +87,20 @@
       .slice(0, max);
   }
 
+  function uniqueValues(values) {
+    var seen = Object.create(null);
+    var out = [];
+    var list = Array.isArray(values) ? values : (values == null ? [] : [values]);
+    list.forEach(function (value) {
+      if (value == null || value === '') return;
+      var key = String(value);
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push(key);
+    });
+    return out;
+  }
+
   function cleanAvatar(value, colorIndex) {
     var bg = AVATAR_BACKGROUNDS[colorIndex % AVATAR_BACKGROUNDS.length];
     if (value && value.kind === 'photo' && typeof value.value === 'string') {
@@ -110,6 +126,7 @@
       avatar: cleanAvatar(identity && identity.avatar, colorIndex),
       color: USER_COLORS[colorIndex % USER_COLORS.length],
       connected: identity && identity.connected === false ? false : true,
+      isModerator: false,
       joinedAt: Date.now()
     };
   }
@@ -258,6 +275,15 @@
     return room.organizerId === userId;
   }
 
+  function isModerator(room, userId) {
+    var user = findUser(room, userId);
+    return !!user && !!user.isModerator && !isOrganizer(room, userId);
+  }
+
+  function canModerate(room, userId) {
+    return isOrganizer(room, userId) || isModerator(room, userId);
+  }
+
   function requireOrganizer(room, userId) {
     if (!isOrganizer(room, userId)) {
       return { ok: false, error: 'Só o organizador da sala pode fazer isso.' };
@@ -268,6 +294,13 @@
   function requireMember(room, userId) {
     if (!findUser(room, userId)) {
       return { ok: false, error: 'Você não está nesta sala.' };
+    }
+    return null;
+  }
+
+  function requireModerator(room, userId) {
+    if (!canModerate(room, userId)) {
+      return { ok: false, error: 'Só o organizador e os moderadores podem fazer isso.' };
     }
     return null;
   }
@@ -374,6 +407,74 @@
         column.cards = column.cards.filter(function (item) { return item.id !== card.id; });
         touch(room);
         return { ok: true, event: { kind: 'card-removed', column: payload.column, cardId: card.id } };
+      }
+
+      case 'card:merge': {
+        var mergeError = requireModerator(room, userId);
+        if (mergeError) return mergeError;
+        column = getColumn(room, payload.column);
+        if (!column) return { ok: false, error: 'Bloco inválido.' };
+        if (!column.revealed) {
+          return { ok: false, error: 'Só é possível mesclar cards depois da revelação.' };
+        }
+
+        var targetId = String(payload.cardId || '');
+        card = findCard(column, targetId);
+        if (!card) return { ok: false, error: 'Card base não encontrado.' };
+
+        var sourceIds = uniqueValues(payload.sourceIds);
+        if (!sourceIds.length) return { ok: false, error: 'Selecione ao menos um card para mesclar.' };
+        if (sourceIds.indexOf(targetId) !== -1) {
+          return { ok: false, error: 'O card base não pode ser mesclado nele mesmo.' };
+        }
+
+        var sources = [];
+        for (var s = 0; s < sourceIds.length; s += 1) {
+          var source = findCard(column, sourceIds[s]);
+          if (!source) return { ok: false, error: 'Um dos cards selecionados não existe mais.' };
+          sources.push(source);
+        }
+
+        var all = [card].concat(sources);
+        card.text = cleanBlock(uniqueValues(all.map(function (item) {
+          return String(item.text || '').trim();
+        })).join('\n\n'), MAX_MERGED_TEXT);
+
+        var likes = [];
+        var planTexts = [];
+        var assignees = [];
+        var planUpdatedAt = 0;
+        all.forEach(function (item) {
+          uniqueValues(item.likes).forEach(function (likeId) {
+            if (likes.indexOf(likeId) === -1) likes.push(likeId);
+          });
+          var plan = item.actionPlan || { text: '', assignees: [], updatedAt: 0 };
+          if (String(plan.text || '').trim()) planTexts.push(String(plan.text).trim());
+          (plan.assignees || []).forEach(function (assigneeId) {
+            if (findUser(room, assigneeId) && assignees.indexOf(assigneeId) === -1) assignees.push(assigneeId);
+          });
+          if ((plan.updatedAt || 0) > planUpdatedAt) planUpdatedAt = plan.updatedAt;
+        });
+        card.likes = likes;
+        card.actionPlan = {
+          text: cleanBlock(uniqueValues(planTexts).join('\n'), MAX_MERGED_PLAN),
+          assignees: assignees,
+          updatedAt: planUpdatedAt
+        };
+
+        var removed = sources.map(function (item) { return item.id; });
+        column.cards = column.cards.filter(function (item) { return removed.indexOf(item.id) === -1; });
+        touch(room);
+        return {
+          ok: true,
+          event: {
+            kind: 'cards-merged',
+            column: payload.column,
+            cardId: card.id,
+            sourceIds: removed,
+            actorId: userId
+          }
+        };
       }
 
       case 'column:reveal': {
@@ -637,6 +738,31 @@
       }
 
       /* ----------------------------- sala ------------------------------ */
+      case 'room:setModerator': {
+        var roleError = requireOrganizer(room, userId);
+        if (roleError) return roleError;
+        var targetId = String(payload.userId || '');
+        if (targetId === userId) return { ok: false, error: 'Você não pode alterar o seu próprio papel.' };
+        user = findUser(room, targetId);
+        if (!user) return { ok: false, error: 'Pessoa não encontrada.' };
+        if (targetId === room.organizerId) return { ok: false, error: 'O organizador já tem o papel máximo.' };
+
+        var makeModerator = !!payload.moderator;
+        if (makeModerator && !user.connected) {
+          return { ok: false, error: 'Só é possível promover alguém que está conectado.' };
+        }
+        if (!makeModerator && !user.isModerator) {
+          return { ok: false, error: 'Essa pessoa já não é moderadora.' };
+        }
+
+        user.isModerator = makeModerator;
+        touch(room);
+        return {
+          ok: true,
+          event: { kind: 'moderator-changed', userId: targetId, moderator: makeModerator }
+        };
+      }
+
       case 'room:kick': {
         orgError = requireOrganizer(room, userId);
         if (orgError) return orgError;
@@ -675,7 +801,11 @@
     if (!room) return { ok: false, error: 'Sala não encontrada.' };
     if (!findUser(room, userId)) return { ok: false, error: 'Pessoa não encontrada.' };
     detachUser(room, userId);
-    if (room.organizerId === userId) room.organizerId = nextOrganizer(room);
+    if (room.organizerId === userId) {
+      room.organizerId = nextOrganizer(room);
+      var newOrganizer = findUser(room, room.organizerId);
+      if (newOrganizer) newOrganizer.isModerator = false;
+    }
     touch(room);
     return {
       ok: true,
@@ -854,6 +984,7 @@
       color: user.color,
       connected: user.connected,
       isOrganizer: room.organizerId === user.id,
+      isModerator: !!user.isModerator,
       joinedAt: user.joinedAt
     };
   }
@@ -865,6 +996,9 @@
       key: key,
       revealed: column.revealed,
       count: column.cards.length,
+      // Mesclar só depois da revelação evita que um card oculto seja incorporado
+      // a um card visível e vaze conteúdo antes da hora.
+      canMerge: canModerate(room, viewerId) && column.revealed,
       cards: column.cards.map(function (card) {
         var canRead = column.revealed || card.authorId === viewerId;
         return {
@@ -1064,6 +1198,8 @@
       viewerId: viewerId,
       organizerId: room.organizerId,
       isOrganizer: isOrg,
+      isModerator: isModerator(room, viewerId),
+      canModerate: canModerate(room, viewerId),
       isMember: !!viewer,
       users: room.users.map(function (user) { return publicUser(room, user); }),
       acertos: columnState(room, 'acertos', viewerId),

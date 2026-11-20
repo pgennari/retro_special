@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/styles.css?v=21">
+  <link rel="stylesheet" href="assets/css/styles.css?v=22">
   <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
@@ -188,6 +188,7 @@
               <span class="sr-only">— copiar link da sala</span>
             </button>
             <span class="org-badge" id="org-badge" hidden>Organizador</span>
+            <span class="org-badge mod-badge" id="mod-badge" hidden>Moderador</span>
             <span class="demo-chip" id="room-demo-chip" hidden>demo</span>
           </div>
 
@@ -209,7 +210,7 @@
               <span class="header-user-avatar" id="header-user-avatar"></span>
               <span class="header-user-name" id="header-user-name"></span>
             </span>
-            <button class="btn btn-ghost btn-small" id="export-pdf-btn" type="button" title="Baixar um PDF com os cards, plano de ação e responsáveis">📄 Exportar PDF</button>
+            <button class="btn btn-ghost btn-small" id="export-pdf-btn" type="button" hidden title="Baixar um PDF com os cards, plano de ação e responsáveis">📄 Exportar PDF</button>
             <button class="btn btn-ghost btn-small" id="leave-btn" type="button">Sair</button>
           </div>
 
@@ -220,7 +221,7 @@
               <span class="pop-count" id="pop-count">0</span>
             </div>
             <ul class="people-list" id="people-list"></ul>
-            <p class="pop-hint">O organizador pode remover alguém que não vai participar.</p>
+            <p class="pop-hint">O organizador pode promover moderadores e remover alguém que não vai participar.</p>
           </div>
         </div>
         <div class="offline-banner" id="offline-banner" hidden>

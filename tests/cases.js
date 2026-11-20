@@ -131,6 +131,143 @@
       assert.equal(engine.getState(room, 'user_bia').acertos.cards.length, 0);
     });
 
+    test('organizador promove e rebaixa moderadores conectados', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+      engine.joinRoom(room, person('user_caio', 'Caio'));
+
+      assert.equal(engine.getState(room, 'user_bia').isModerator, false);
+      assert.equal(engine.getState(room, 'user_bia').canModerate, false);
+      assert.equal(engine.getState(room, 'user_bia').users[1].isModerator, false);
+
+      var denied = engine.applyAction(room, 'user_bia', 'room:setModerator', {
+        userId: 'user_caio', moderator: true
+      });
+      assert.ok(!denied.ok, 'participante não pode promover ninguém');
+
+      engine.setConnected(room, 'user_bia', false);
+      var offline = engine.applyAction(room, 'user_ana', 'room:setModerator', {
+        userId: 'user_bia', moderator: true
+      });
+      assert.ok(!offline.ok, 'não pode promover quem está offline');
+
+      engine.setConnected(room, 'user_bia', true);
+      var promote = engine.applyAction(room, 'user_ana', 'room:setModerator', {
+        userId: 'user_bia', moderator: true
+      });
+      assert.ok(promote.ok);
+      assert.equal(promote.event.kind, 'moderator-changed');
+      assert.equal(engine.getState(room, 'user_bia').isModerator, true);
+      assert.equal(engine.getState(room, 'user_bia').canModerate, true);
+      assert.equal(engine.getState(room, 'user_caio').canModerate, false);
+      assert.equal(engine.getState(room, 'user_ana').users[1].isModerator, true);
+
+      assert.ok(!engine.applyAction(room, 'user_ana', 'room:setModerator', {
+        userId: 'user_ana', moderator: true
+      }).ok, 'organizador não pode alterar seu próprio papel');
+
+      var demote = engine.applyAction(room, 'user_ana', 'room:setModerator', {
+        userId: 'user_bia', moderator: false
+      });
+      assert.ok(demote.ok);
+      assert.equal(engine.getState(room, 'user_bia').canModerate, false);
+    });
+
+    test('moderador mescla cards de acertos após a revelação', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+      engine.joinRoom(room, person('user_caio', 'Caio'));
+      assert.ok(engine.applyAction(room, 'user_ana', 'room:setModerator', {
+        userId: 'user_bia', moderator: true
+      }).ok);
+
+      var first = engine.applyAction(room, 'user_ana', 'card:add', {
+        column: 'acertos', text: 'Deploy sem sustos'
+      });
+      var second = engine.applyAction(room, 'user_bia', 'card:add', {
+        column: 'acertos', text: 'Deploy tranquilo'
+      });
+
+      assert.ok(!engine.applyAction(room, 'user_bia', 'column:reveal', { column: 'acertos' }).ok,
+        'moderador não conduz a revelação');
+
+      var locked = engine.applyAction(room, 'user_bia', 'card:merge', {
+        column: 'acertos', cardId: first.event.cardId, sourceIds: [second.event.cardId]
+      });
+      assert.ok(!locked.ok, 'não pode mesclar antes da revelação');
+      assert.equal(engine.getState(room, 'user_bia').acertos.canMerge, false);
+
+      assert.ok(engine.applyAction(room, 'user_ana', 'column:reveal', { column: 'acertos' }).ok);
+      assert.equal(engine.getState(room, 'user_bia').acertos.canMerge, true);
+      assert.equal(engine.getState(room, 'user_caio').acertos.canMerge, false);
+      assert.equal(engine.getState(room, 'user_bia').acertos.cards[0].canRemove, false);
+      assert.ok(!engine.applyAction(room, 'user_bia', 'card:remove', {
+        column: 'acertos', cardId: first.event.cardId
+      }).ok, 'moderador não ganha permissão de remoção');
+
+      assert.ok(engine.applyAction(room, 'user_caio', 'card:like', {
+        column: 'acertos', cardId: first.event.cardId
+      }).ok);
+      assert.ok(engine.applyAction(room, 'user_ana', 'card:like', {
+        column: 'acertos', cardId: second.event.cardId
+      }).ok);
+
+      var merged = engine.applyAction(room, 'user_bia', 'card:merge', {
+        column: 'acertos', cardId: first.event.cardId, sourceIds: [second.event.cardId]
+      });
+      assert.ok(merged.ok);
+      assert.equal(merged.event.kind, 'cards-merged');
+      assert.equal(merged.event.cardId, first.event.cardId);
+
+      var view = engine.getState(room, 'user_caio');
+      assert.equal(view.acertos.cards.length, 1);
+      assert.equal(view.acertos.cards[0].id, first.event.cardId);
+      assert.ok(view.acertos.cards[0].text.indexOf('Deploy sem sustos') !== -1);
+      assert.ok(view.acertos.cards[0].text.indexOf('Deploy tranquilo') !== -1);
+      assert.equal(view.acertos.cards[0].likeCount, 2);
+      assert.equal(view.acertos.cards[0].likedByMe, true);
+    });
+
+    test('mesclar melhorias combina plano de ação e responsáveis', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+      engine.joinRoom(room, person('user_caio', 'Caio'));
+      assert.ok(engine.applyAction(room, 'user_ana', 'room:setModerator', {
+        userId: 'user_bia', moderator: true
+      }).ok);
+
+      var first = engine.applyAction(room, 'user_ana', 'card:add', {
+        column: 'melhorias', text: 'Melhorar testes'
+      });
+      var second = engine.applyAction(room, 'user_bia', 'card:add', {
+        column: 'melhorias', text: 'Aumentar cobertura'
+      });
+      assert.ok(engine.applyAction(room, 'user_ana', 'column:reveal', { column: 'melhorias' }).ok);
+      assert.ok(engine.applyAction(room, 'user_ana', 'card:actionPlan', {
+        cardId: first.event.cardId, text: 'Separar 30 min de testes', assignees: ['user_bia']
+      }).ok);
+      assert.ok(engine.applyAction(room, 'user_ana', 'card:actionPlan', {
+        cardId: second.event.cardId, text: 'Cobrir fluxos críticos', assignees: ['user_caio']
+      }).ok);
+
+      var denied = engine.applyAction(room, 'user_caio', 'card:merge', {
+        column: 'melhorias', cardId: first.event.cardId, sourceIds: [second.event.cardId]
+      });
+      assert.ok(!denied.ok, 'participante não pode mesclar');
+
+      assert.ok(engine.applyAction(room, 'user_bia', 'card:merge', {
+        column: 'melhorias', cardId: first.event.cardId, sourceIds: [second.event.cardId]
+      }).ok);
+
+      var card = engine.getState(room, 'user_ana').melhorias.cards[0];
+      assert.equal(engine.getState(room, 'user_ana').melhorias.cards.length, 1);
+      assert.ok(card.text.indexOf('Melhorar testes') !== -1);
+      assert.ok(card.text.indexOf('Aumentar cobertura') !== -1);
+      assert.ok(card.actionPlan.text.indexOf('Separar 30 min de testes') !== -1);
+      assert.ok(card.actionPlan.text.indexOf('Cobrir fluxos críticos') !== -1);
+      assert.deepEqual(card.actionPlan.assignees, ['user_bia', 'user_caio']);
+    });
+
     test('plano de ação exige revelação e valida responsáveis', function () {
       var room = engine.createRoom(person('user_ana', 'Ana'));
       engine.joinRoom(room, person('user_bia', 'Bia'));

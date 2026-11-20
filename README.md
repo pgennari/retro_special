@@ -33,15 +33,17 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 - Crie uma sala (você vira **organizador**) ou entre com o código de 6 caracteres.
 - Link de convite (`/sala/CODIGO`) leva direto para a sala — e pede a identificação se ainda não houver.
 - Presença ao vivo, pessoas conectadas/offline e remoção de participantes pelo organizador.
+- O organizador pode promover pessoas conectadas a **Moderador** (e rebaixar depois) na lista de pessoas da sala.
 - Sincronização por **WebSocket** (`wss://…/ws/rooms/CODIGO?userId=…`); SSE e polling REST entram automaticamente se o proxy bloquear o upgrade.
 - O organizador pode **chamar a turma para a Dinâmica**: quem estiver em outra aba vê o botão da Dinâmica triplicar e sacudir.
 - Na votação, o organizador pode **chamar atenção**: os cards ainda sem palpite sacodem para quem está com votos pendentes.
-- **📄 Exportar PDF** baixa um relatório da sala com os cards de Acertos e Melhorias, joinhas, plano de ação e responsáveis. Cards ainda não revelados aparecem como ocultos.
+- **📄 Exportar PDF** aparece só para organizador e moderadores e baixa um relatório com os cards de Acertos e Melhorias, joinhas, plano de ação e responsáveis. Cards ainda não revelados aparecem como ocultos.
 - Ao sair (ou fechar o browser), seu lugar é mantido: volte quando quiser usando o código.
 
 ### Acertos e Melhorias
 - Todos adicionam cards **anônimos** (a autoria não aparece para ninguém); o conteúdo fica **oculto** até o organizador revelar o bloco. Texto, plano de ação e responsáveis não são enviados ao cliente nem entram no DOM antes da revelação.
 - Depois da revelação, os cards ganham **joinhas** (👍) com animação e esquentam conforme recebem votos. A partir daí, somente o organizador pode remover cards.
+- Após a revelação, organizador e moderadores podem **mesclar cards semelhantes**: marque pelo menos 2 cards e use “Mesclar”. O primeiro marcado vira o card base; textos, joinhas e planos são combinados e os demais cards são removidos.
 - Em Melhorias, o organizador define um **plano de ação** por card e escolhe os responsáveis.
 
 ### Administração
@@ -157,5 +159,5 @@ firestore.rules           bloqueia acesso direto do navegador
 - O painel ADMIN lista todas as salas ainda persistidas, inclusive as expiradas ou gravadas com um formato antigo; abrir uma delas no admin não apaga o documento.
 - No Render, o WebSocket usa a mesma porta do HTTP (`wss://`). O cliente envia um ping a cada 25 s para manter o serviço free ativo e detectar conexões mortas.
 - As fotos ficam em subdocumentos (`rooms/{code}/avatars/{userId}`) para não estourar o limite de 1 MiB do documento principal.
-- O conteúdo dos cards é enviado ao navegador antes da revelação — o desfoque é visual, como pede a experiência. A autoria dos cards **não** é enviada ao navegador; a das respostas da dinâmica só aparece quando o organizador revela cada uma.
+- Antes da revelação, o conteúdo dos cards não é enviado ao navegador de quem não pode lê-lo (nem entra no DOM). O mesmo vale para respostas da dinâmica: autoria e autores só aparecem quando o organizador revela cada uma.
 - Fotos são reduzidas para 192 × 192 JPEG no cliente antes de serem enviadas.
