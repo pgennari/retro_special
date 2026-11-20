@@ -862,18 +862,24 @@
       revealed: column.revealed,
       count: column.cards.length,
       cards: column.cards.map(function (card) {
+        var canRead = column.revealed || card.authorId === viewerId;
         return {
           id: card.id,
-          text: card.text,
+          // Texto e plano só saem do servidor para quem pode lê-los. Assim o
+          // conteúdo não aparece no DOM (nem no estado em memória) antes da
+          // revelação, mesmo com DevTools aberto.
+          text: canRead ? card.text : '',
           createdAt: card.createdAt,
           likeCount: card.likes.length,
           likedByMe: card.likes.indexOf(viewerId) !== -1,
-          canRead: column.revealed || card.authorId === viewerId,
+          canRead: canRead,
           canRemove: card.authorId === viewerId || isOrg,
           isMine: card.authorId === viewerId,
           actionPlan: {
-            text: card.actionPlan.text,
-            assignees: card.actionPlan.assignees.filter(function (id) { return !!findUser(room, id); }),
+            text: canRead ? card.actionPlan.text : '',
+            assignees: canRead
+              ? card.actionPlan.assignees.filter(function (id) { return !!findUser(room, id); })
+              : [],
             updatedAt: card.actionPlan.updatedAt
           },
           canEditPlan: isOrg && column.revealed

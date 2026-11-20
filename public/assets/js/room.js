@@ -747,7 +747,7 @@
       : '';
 
     var likeHTML = '';
-    if (column.revealed) {
+    if (column.revealed && !isLocked) {
       likeHTML = '<button class="like-btn' + (card.likedByMe ? ' is-liked' : '') + '" type="button" ' +
         'data-like="' + esc(card.id) + '" ' +
         'style="--heat:' + (heat / 8).toFixed(2) + '" ' +
@@ -758,7 +758,7 @@
     }
 
     var planHTML = '';
-    if (key === 'melhorias') {
+    if (!isLocked && key === 'melhorias') {
       if (plan.text || plan.assignees.length) {
         planHTML = '<div class="action-plan">' +
           '<div class="action-plan-head"><span>📝 Plano de ação</span>' +
@@ -789,7 +789,8 @@
     return '<article class="card column-' + key + (isLocked ? ' is-locked' : '') + (showMine ? ' is-mine' : '') + heatClass + '" data-card-id="' + esc(card.id) + '" style="--heat:' + (heat / 8).toFixed(2) + '">' +
       removeHTML +
       mineBadge +
-      '<p class="card-text">' + esc(card.text) + '</p>' +
+      // Card oculto não recebe o texto no DOM: blurred text ainda é lido no DevTools.
+      (isLocked ? '' : '<p class="card-text">' + esc(card.text) + '</p>') +
       (isLocked ? '<div class="card-lock">🔒 <b>conteúdo oculto</b> · o organizador revela para todos</div>' : '') +
       planHTML +
       (likeHTML ? '<div class="card-foot"><div class="card-actions">' + likeHTML + '</div></div>' : '') +
@@ -2012,9 +2013,10 @@
     var ghosts = answers.map(function (answer) {
       var ghost = document.createElement('div');
       ghost.className = 'shuffle-ghost';
-      var text = String(answer.text).replace(/\s+/g, ' ').slice(0, 26);
-      ghost.textContent = scramble(text.length);
-      ghost.setAttribute('data-text', text);
+      // Guarda só o tamanho: o texto real jamais entra no DOM durante o embaralhamento.
+      var length = String(answer.text).replace(/\s+/g, ' ').slice(0, 26).length;
+      ghost.textContent = scramble(length);
+      ghost.setAttribute('data-length', String(length));
       refs.shuffleGhosts.appendChild(ghost);
       return ghost;
     });
@@ -2022,8 +2024,8 @@
     if (ghosts.length) {
       shuffleGhostTimer = setInterval(function () {
         ghosts.forEach(function (ghost) {
-          var text = ghost.getAttribute('data-text') || '';
-          ghost.textContent = scramble(text.length);
+          var length = Number(ghost.getAttribute('data-length')) || 0;
+          ghost.textContent = scramble(length);
         });
       }, 65);
     }

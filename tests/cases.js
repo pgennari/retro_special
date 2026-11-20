@@ -63,15 +63,22 @@
       engine.joinRoom(room, person('user_bia', 'Bia'));
       var add = engine.applyAction(room, 'user_ana', 'card:add', { column: 'acertos', text: 'Deploy sem sustos' });
       assert.ok(add.ok);
+      room.columns.acertos.cards[0].actionPlan = {
+        text: 'Plano secreto', assignees: ['user_bia'], updatedAt: 1
+      };
 
       var biaView = engine.getState(room, 'user_bia');
       assert.equal(biaView.acertos.cards.length, 1);
       assert.equal(biaView.acertos.cards[0].canRead, false);
       assert.equal(biaView.acertos.cards[0].authorId, undefined);
+      assert.equal(biaView.acertos.cards[0].text, '', 'o texto não pode vazar no estado');
+      assert.equal(biaView.acertos.cards[0].actionPlan.text, '');
+      assert.equal(biaView.acertos.cards[0].actionPlan.assignees.length, 0);
       assert.equal(biaView.acertos.revealed, false);
 
       var anaView = engine.getState(room, 'user_ana');
       assert.equal(anaView.acertos.cards[0].canRead, true);
+      assert.equal(anaView.acertos.cards[0].actionPlan.text, 'Plano secreto');
 
       var denied = engine.applyAction(room, 'user_bia', 'column:reveal', { column: 'acertos' });
       assert.ok(!denied.ok);

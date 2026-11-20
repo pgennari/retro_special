@@ -1725,13 +1725,6 @@ img { max-width: 100%; }
     var(--surface-2);
 }
 
-.card.is-locked .card-text {
-  filter: blur(7px);
-  opacity: 0.6;
-  user-select: none;
-  pointer-events: none;
-}
-
 .card-lock {
   display: flex;
   align-items: center;

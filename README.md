@@ -40,7 +40,7 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 - Ao sair (ou fechar o browser), seu lugar é mantido: volte quando quiser usando o código.
 
 ### Acertos e Melhorias
-- Todos adicionam cards **anônimos** (a autoria não aparece para ninguém); o conteúdo fica **desfocado** até o organizador revelar o bloco.
+- Todos adicionam cards **anônimos** (a autoria não aparece para ninguém); o conteúdo fica **oculto** até o organizador revelar o bloco. Texto, plano de ação e responsáveis não são enviados ao cliente nem entram no DOM antes da revelação.
 - Depois da revelação, os cards ganham **joinhas** (👍) com animação e esquentam conforme recebem votos.
 - Em Melhorias, o organizador define um **plano de ação** por card e escolhe os responsáveis.
 
