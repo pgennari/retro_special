@@ -1009,7 +1009,13 @@ img { max-width: 100%; }
 .room-header-center,
 .room-header-right { display: flex; align-items: center; gap: 9px; }
 
-.room-header-center { flex: 1; justify-content: center; }
+.room-header-center {
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
 
 .code-chip {
   display: flex;
