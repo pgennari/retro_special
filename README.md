@@ -46,7 +46,7 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 - Todos adicionam cards **anônimos** (a autoria não aparece para ninguém); o conteúdo fica **oculto** até o organizador revelar o bloco. Texto, plano de ação e responsáveis não são enviados ao cliente nem entram no DOM antes da revelação.
 - Depois da revelação, os cards ganham **joinhas** (👍) com animação e esquentam conforme recebem votos. A partir daí, somente o organizador pode remover cards.
 - O organizador pode usar **🙈 Ocultar tudo** para voltar a esconder os conteúdos; joinhas e planos de ação são preservados para uma próxima revelação.
-- O interruptor **Apresentando** esconde o conteúdo dos cards escritos pelo organizador, para a tela compartilhada não mostrar a resposta dele.
+- O interruptor **Apresentando** esconde o conteúdo dos cards escritos pelo organizador enquanto o bloco está oculto; ao usar **Revelar tudo**, a revelação prevalece e os cards aparecem normalmente.
 - Após a revelação, organizador e moderadores podem **mesclar cards semelhantes**: marque pelo menos 2 cards e use “Mesclar”. O primeiro marcado vira o card base; textos, joinhas e planos são combinados e os demais cards são removidos.
 - Em Melhorias, o organizador define um **plano de ação** por card e escolhe os responsáveis.
 

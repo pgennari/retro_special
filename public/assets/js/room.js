@@ -949,9 +949,10 @@
     var heatClass = heat === 0 ? '' : (heat <= 2 ? ' heat-1' : heat <= 4 ? ' heat-2' : heat <= 6 ? ' heat-3' : ' heat-4');
     var isMine = card.isMine;
     var showMine = isMine && !presenting;
-    // No modo apresentando o organizador também esconde o próprio conteúdo:
-    // a tela compartilhada não pode mostrar a resposta que ele escreveu.
-    var hiddenByPresenting = !!presenting && !!isMine;
+    // No modo apresentando o organizador esconde o próprio conteúdo enquanto
+    // o bloco está oculto. Quando ele revela tudo, a revelação prevalece e o
+    // card aparece normalmente para ele também.
+    var hiddenByPresenting = !!presenting && !!isMine && !column.revealed;
     var isLocked = !card.canRead || hiddenByPresenting;
     var plan = card.actionPlan || { text: '', assignees: [] };
 
