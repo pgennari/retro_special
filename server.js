@@ -232,6 +232,7 @@ function normalizeAdminRoom(room, code) {
 
   return Object.assign({}, source, {
     code: code,
+    title: typeof source.title === 'string' ? source.title : '',
     createdAt: Number(source.createdAt) || Number(source.updatedAt) || now,
     updatedAt: Number(source.updatedAt) || Number(source.createdAt) || now,
     version: Number(source.version) || 1,
@@ -527,6 +528,7 @@ function roomSummary(room) {
   const melhorias = room.columns && room.columns.melhorias ? room.columns.melhorias.cards : [];
   return {
     code: room.code,
+    title: room.title || '',
     createdAt: room.createdAt || 0,
     updatedAt: room.updatedAt || 0,
     userCount: room.users.length,

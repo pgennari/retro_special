@@ -1146,6 +1146,52 @@ img { max-width: 100%; }
 
 .header-user-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.header-user:hover {
+  background: var(--yellow-soft);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--border);
+}
+
+.header-user-edit { font-size: 11px; color: var(--muted); }
+
+.room-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(260px, 32vw);
+  padding: 6px 11px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--yellow-soft);
+  color: var(--ink-strong);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 var(--border);
+  transition: background 0.18s, transform 0.14s, box-shadow 0.14s;
+}
+
+.room-title > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-title.is-empty {
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 700;
+  border-style: dashed;
+}
+
+.room-title-edit { font-size: 11px; opacity: 0.65; }
+
+.room-title:hover {
+  background: var(--yellow);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--border);
+}
+
 .presenting-switch {
   position: relative;
   display: inline-flex;
@@ -3180,6 +3226,26 @@ img { max-width: 100%; }
 
 .plan-field textarea:focus { outline: none; box-shadow: 0 0 0 4px var(--teal-soft); }
 
+.profile-editor { display: flex; flex-direction: column; align-items: flex-start; }
+.profile-editor .plan-field { width: 100%; }
+
+.profile-preview {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  margin-bottom: 13px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface-2);
+  box-shadow: 2px 2px 0 var(--border);
+}
+
+.profile-preview .avatar { --size: 64px !important; }
+
+.profile-avatar-options { max-height: 130px; overflow-y: auto; margin-bottom: 8px; }
+.profile-photo-btn { font-size: 11.5px; }
+
 .assignee-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
 .assignee-option {
@@ -3426,6 +3492,7 @@ img { max-width: 100%; }
   .room-header-inner { padding: 10px 14px; gap: 8px; }
   .room-header-left .brand-name { display: none; }
   .room-header-left .brand-mark { width: 32px; height: 32px; }
+  .room-title { max-width: 28vw; font-size: 10.5px; padding: 5px 8px; }
   .live-pill span { display: none; }
   .live-pill { padding: 6px; }
   .people-popover { right: 14px; width: min(308px, calc(100vw - 28px)); }

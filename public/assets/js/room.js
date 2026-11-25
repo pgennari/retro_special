@@ -107,6 +107,9 @@
     refs.roomView = document.getElementById('room-view');
     refs.codeChip = document.getElementById('code-chip');
     refs.roomCode = document.getElementById('room-code');
+    refs.roomTitle = document.getElementById('room-title');
+    refs.roomTitleText = document.getElementById('room-title-text');
+    refs.roomTitleEdit = $('.room-title-edit', document.getElementById('room-title'));
     refs.footerCode = document.getElementById('footer-code');
     refs.orgBadge = document.getElementById('org-badge');
     refs.modBadge = document.getElementById('mod-badge');
@@ -173,6 +176,8 @@
     });
 
     refs.codeChip.addEventListener('click', copyRoomLink);
+    if (refs.roomTitle) refs.roomTitle.addEventListener('click', openTitleModal);
+    if (refs.headerUser) refs.headerUser.addEventListener('click', openProfileModal);
     if (refs.exportPdfBtn) refs.exportPdfBtn.addEventListener('click', exportPdf);
     refs.leaveBtn.addEventListener('click', leaveRoom);
     if (refs.presentingCheckbox) refs.presentingCheckbox.addEventListener('change', togglePresenting);
@@ -541,6 +546,10 @@
   function resetRoomUi(code) {
     refs.roomCode.textContent = code;
     refs.footerCode.textContent = code;
+    if (refs.roomTitle) {
+      refs.roomTitle.hidden = true;
+      refs.roomTitleText.textContent = '';
+    }
     refs.peopleBtn.setAttribute('aria-label', 'Pessoas na sala (0)');
     if (refs.orgBadge) refs.orgBadge.hidden = true;
     if (refs.modBadge) refs.modBadge.hidden = true;
@@ -613,6 +622,17 @@
   function renderHeader() {
     refs.roomCode.textContent = current.code;
     refs.footerCode.textContent = current.code;
+    if (refs.roomTitle) {
+      var title = current.title || '';
+      // Com título vazio, o organizador ainda vê o atalho para criá-lo.
+      refs.roomTitle.hidden = !title && !current.isOrganizer;
+      refs.roomTitleText.textContent = title || (current.isOrganizer ? 'Dar título à sala' : '');
+      refs.roomTitle.classList.toggle('is-empty', !title);
+      var titleHint = current.isOrganizer ? 'Editar título da sala' : (title || 'Título da sala');
+      refs.roomTitle.setAttribute('title', titleHint);
+      refs.roomTitle.setAttribute('aria-label', titleHint);
+      if (refs.roomTitleEdit) refs.roomTitleEdit.hidden = !current.isOrganizer;
+    }
     if (refs.orgBadge) refs.orgBadge.hidden = !current.isOrganizer;
     if (refs.modBadge) refs.modBadge.hidden = !current.isModerator;
     if (refs.exportPdfBtn) refs.exportPdfBtn.hidden = !current.canModerate;
@@ -655,6 +675,161 @@
     }
     if (refs.headerUserName) refs.headerUserName.textContent = user.name || 'Participante';
     if (refs.headerUser) refs.headerUser.hidden = false;
+  }
+
+  /* --------------------------- título da sala -------------------------- */
+
+  function openTitleModal() {
+    if (!current || !current.isOrganizer) return;
+    var body = '<label class="plan-field"><span class="field-label">Título da sala</span>' +
+      '<input id="room-title-input" class="text-input" type="text" maxlength="80" ' +
+      'placeholder="Ex.: Retro da sprint 42" value="' + esc(current.title || '') + '"></label>' +
+      '<p class="micro">O título aparece no cabeçalho para todas as pessoas da sala.</p>' +
+      '<div class="modal-actions">' +
+      (current.title ? '<button class="btn btn-ghost" type="button" data-title-clear>Remover título</button>' : '') +
+      '<button class="btn btn-ghost" type="button" data-title-cancel>Cancelar</button>' +
+      '<button class="btn btn-primary" type="button" data-title-save>Salvar</button>' +
+      '</div>';
+
+    var root = ui.openModal('Título da sala', body);
+    if (!root) return;
+    var input = root.querySelector('#room-title-input');
+    var save = root.querySelector('[data-title-save]');
+    var cancel = root.querySelector('[data-title-cancel]');
+    var clear = root.querySelector('[data-title-clear]');
+
+    function store(value) {
+      if (!save || save.disabled) return;
+      save.disabled = true;
+      save.textContent = 'Salvando…';
+      runAction('room:setTitle', { title: value }, { lockKey: 'room-title' }).then(function (ok) {
+        if (!ok) {
+          save.disabled = false;
+          save.textContent = 'Salvar';
+          return;
+        }
+        ui.closeModal();
+        ui.toast(value ? 'Título da sala atualizado!' : 'Título removido.', 'success');
+      });
+    }
+
+    if (cancel) cancel.addEventListener('click', function () { ui.closeModal(); });
+    if (clear) clear.addEventListener('click', function () { store(''); });
+    if (save) {
+      save.addEventListener('click', function () {
+        store(input ? input.value.replace(/\s+/g, ' ').trim() : '');
+      });
+    }
+    if (input) {
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          store(input.value.replace(/\s+/g, ' ').trim());
+        }
+      });
+    }
+  }
+
+  /* -------------------------- perfil na sala --------------------------- */
+
+  function profileOptionsHTML(avatar) {
+    var selectedEmoji = avatar && avatar.kind === 'emoji' ? avatar.value : null;
+    return identity.listEmojis().map(function (item) {
+      var selected = selectedEmoji === item.emoji;
+      return '<button class="avatar-option' + (selected ? ' is-selected' : '') + '" type="button" role="option" ' +
+        'aria-selected="' + (selected ? 'true' : 'false') + '" data-emoji-index="' + item.index + '" ' +
+        'title="Escolher ' + ui.esc(item.emoji) + '">' +
+        ui.avatarHTML(item.avatar, { size: 31 }) +
+        '</button>';
+    }).join('');
+  }
+
+  function openProfileModal() {
+    if (!current || !currentUserId) return;
+    var me = findUser(currentUserId) || identity.load();
+    var draft = { name: me.name || '', avatar: me.avatar || identity.load().avatar };
+
+    var body = '<div class="profile-editor">' +
+      '<div class="profile-preview" id="profile-preview">' + ui.avatarHTML(draft.avatar, { size: 64 }) + '</div>' +
+      '<label class="plan-field"><span class="field-label">Seu nome</span>' +
+      '<input id="profile-name-input" class="text-input" type="text" maxlength="40" ' +
+      'placeholder="Seu nome" value="' + esc(draft.name) + '"></label>' +
+      '<div class="field-label">Escolha um avatar</div>' +
+      '<div class="avatar-options profile-avatar-options" id="profile-avatar-options">' + profileOptionsHTML(draft.avatar) + '</div>' +
+      '<button class="link-btn profile-photo-btn" id="profile-upload-btn" type="button">Enviar foto</button>' +
+      '<input type="file" id="profile-photo-input" accept="image/png,image/jpeg,image/webp" hidden>' +
+      '<p class="micro">Sua foto é recortada e reduzida no navegador antes de ser enviada.</p>' +
+      '<div class="modal-actions">' +
+      '<button class="btn btn-ghost" type="button" data-profile-cancel>Cancelar</button>' +
+      '<button class="btn btn-primary" type="button" data-profile-save>Salvar alterações</button>' +
+      '</div></div>';
+
+    var root = ui.openModal('Editar perfil', body);
+    if (!root) return;
+    var nameInput = root.querySelector('#profile-name-input');
+    var fileInput = root.querySelector('#profile-photo-input');
+    var save = root.querySelector('[data-profile-save]');
+    var cancel = root.querySelector('[data-profile-cancel]');
+
+    function renderDraft() {
+      var preview = root.querySelector('#profile-preview');
+      if (preview) preview.innerHTML = ui.avatarHTML(draft.avatar, { size: 64 });
+      var options = root.querySelector('#profile-avatar-options');
+      if (options) options.innerHTML = profileOptionsHTML(draft.avatar);
+    }
+
+    root.addEventListener('click', function (event) {
+      var option = event.target.closest('[data-emoji-index]');
+      if (option) {
+        draft.avatar = identity.emojiAvatar(Number(option.getAttribute('data-emoji-index')));
+        renderDraft();
+        return;
+      }
+      if (event.target.closest('#profile-upload-btn') && fileInput) fileInput.click();
+    });
+
+    if (nameInput) {
+      nameInput.addEventListener('input', function () { draft.name = nameInput.value; });
+    }
+    if (fileInput) {
+      fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (!file) return;
+        identity.readPhoto(file).then(function (avatar) {
+          draft.avatar = avatar;
+          renderDraft();
+          ui.toast('Foto pronta! Salve para aplicar na sala.', 'success');
+        }).catch(function (error) {
+          ui.toast(error && error.message ? error.message : 'Não consegui usar essa foto.', 'error');
+        });
+      });
+    }
+    if (cancel) cancel.addEventListener('click', function () { ui.closeModal(); });
+    if (save) {
+      save.addEventListener('click', function () {
+        if (save.disabled) return;
+        var name = String(draft.name || '').replace(/\s+/g, ' ').trim();
+        if (!name) {
+          ui.toast('Escreva seu nome antes de salvar.', 'error');
+          if (nameInput) nameInput.focus();
+          return;
+        }
+        save.disabled = true;
+        save.textContent = 'Salvando…';
+        runAction('room:updateProfile', { name: name, avatar: draft.avatar }, { lockKey: 'profile' }).then(function (ok) {
+          if (!ok) {
+            save.disabled = false;
+            save.textContent = 'Salvar alterações';
+            return;
+          }
+          // Mantém a identidade deste navegador igual à que a sala recebeu.
+          identity.update({ name: name, avatar: draft.avatar });
+          ui.closeModal();
+          ui.toast('Perfil atualizado!', 'success');
+        });
+      });
+    }
   }
 
   function togglePresenting() {
@@ -739,6 +914,10 @@
 
     if (column.revealed) {
       var actionHTML = '<span class="state-pill revealed">✓ revelado</span>';
+      if (current.isOrganizer) {
+        actionHTML += '<button class="btn btn-secondary btn-small" type="button" data-action="hide-column" ' +
+          'title="Ocultar os conteúdos novamente">🙈 Ocultar tudo</button>';
+      }
       if (column.canMerge) {
         actionHTML += '<button class="btn btn-secondary btn-small" type="button" data-action="merge-cards" ' +
           (selectedIds.length >= 2 ? '' : 'disabled title="Selecione pelo menos 2 cards"') +
@@ -768,10 +947,13 @@
   function cardHTML(key, card, column, isMergeSelected) {
     var heat = Math.min(card.likeCount, 8);
     var heatClass = heat === 0 ? '' : (heat <= 2 ? ' heat-1' : heat <= 4 ? ' heat-2' : heat <= 6 ? ' heat-3' : ' heat-4');
-    var isLocked = !card.canRead;
-    var plan = card.actionPlan || { text: '', assignees: [] };
     var isMine = card.isMine;
     var showMine = isMine && !presenting;
+    // No modo apresentando o organizador também esconde o próprio conteúdo:
+    // a tela compartilhada não pode mostrar a resposta que ele escreveu.
+    var hiddenByPresenting = !!presenting && !!isMine;
+    var isLocked = !card.canRead || hiddenByPresenting;
+    var plan = card.actionPlan || { text: '', assignees: [] };
 
     var removeHTML = card.canRemove
       ? '<button class="card-remove icon-btn danger" type="button" data-remove-card="' + esc(card.id) + '" title="Remover card" aria-label="Remover card">✕</button>'
@@ -834,7 +1016,11 @@
       mineBadge +
       // Card oculto não recebe o texto no DOM: blurred text ainda é lido no DevTools.
       (isLocked ? '' : '<p class="card-text">' + esc(card.text) + '</p>') +
-      (isLocked ? '<div class="card-lock">🔒 <b>conteúdo oculto</b> · o organizador revela para todos</div>' : '') +
+      (isLocked
+        ? '<div class="card-lock">' + (hiddenByPresenting
+          ? '🙈 <b>conteúdo oculto</b> · modo apresentando'
+          : '🔒 <b>conteúdo oculto</b> · o organizador revela para todos') + '</div>'
+        : '') +
       planHTML +
       ((likeHTML || mergeHTML)
         ? '<div class="card-foot"><div class="card-actions">' + mergeHTML + likeHTML + '</div></div>'
@@ -1120,10 +1306,15 @@
       if (revealedAuthorId) {
         extra = row.target.id === revealedAuthorId ? ' correct' : ' wrong';
       }
-      var title = row.voter.name + ' acha que foi ' + row.target.name +
+      // A autoria do palpite (quem votou) só aparece depois que o autor da
+      // resposta é revelado — ou quando o palpite é o seu próprio.
+      var voterPublic = !!showVoter || !!revealedAuthorId || mine;
+      var voterLabel = voterPublic ? row.voter.name : 'alguém';
+      var title = voterLabel + ' acha que foi ' + row.target.name +
         (editable ? ' · clique para remover' : '');
       return '<button class="assignment' + (editable ? ' mine' : '') + extra + (showVoter ? ' has-voter' : '') + '" type="button" ' +
-        'data-voter="' + esc(row.voter.id) + '" data-target="' + esc(row.target.id) + '" data-answer="' + esc(answerId) + '" ' +
+        (voterPublic ? 'data-voter="' + esc(row.voter.id) + '" ' : '') +
+        'data-target="' + esc(row.target.id) + '" data-answer="' + esc(answerId) + '" ' +
         'title="' + esc(title) + '" ' + (editable ? '' : 'disabled') + '>' +
         ui.avatarHTML(row.target.avatar, { size: 28 }) +
         '<span class="assignment-name">' + esc(row.target.name) + '</span>' +
@@ -1262,10 +1453,11 @@
     var answerCards = answers.map(function (answer) {
       var originalIndex = revealOrder.indexOf(answer.id);
       var answerNumber = originalIndex === -1 ? 1 : originalIndex + 1;
+      var isRevealed = !!answer.revealed && !!answer.author;
       var chips = assignmentChipsHTML(answer.id, {
         canEdit: false,
-        showVoter: true,
-        revealedAuthorId: answer.revealed && answer.author ? answer.author.id : null
+        showVoter: isRevealed,
+        revealedAuthorId: isRevealed ? answer.author.id : null
       });
       var authorBlock;
       if (answer.revealed && answer.author) {
@@ -1632,6 +1824,22 @@
       return;
     }
 
+    var hide = event.target.closest('[data-action="hide-column"]');
+    if (hide) {
+      var hidePanel = hide.closest('[data-panel]');
+      var hideColumn = hidePanel ? hidePanel.getAttribute('data-panel') : '';
+      if (!hideColumn || hideColumn === 'dynamics' || !current || !current.isOrganizer) return;
+      ui.confirmDialog({
+        title: 'Ocultar ' + COLUMN_LABELS[hideColumn] + ' novamente?',
+        message: 'Os conteúdos voltam a ficar ocultos para o time. Joinhas e planos de ação são mantidos.',
+        confirmLabel: 'Ocultar'
+      }).then(function (ok) {
+        if (!ok) return;
+        runAction('column:hide', { column: hideColumn }, { lockKey: 'hide-' + hideColumn });
+      });
+      return;
+    }
+
     var reveal = event.target.closest('[data-action="reveal-column"]');
     if (reveal) {
       var panel = reveal.closest('[data-panel]');
@@ -1639,7 +1847,7 @@
       if (!column || column === 'dynamics') return;
       ui.confirmDialog({
         title: 'Revelar ' + COLUMN_LABELS[column] + '?',
-        message: 'Todo o time vai ver os conteúdos e poderá dar joinhas. Não dá para esconder de novo.',
+        message: 'Todo o time vai ver os conteúdos e poderá dar joinhas. Você poderá ocultar novamente depois.',
         confirmLabel: 'Revelar'
       }).then(function (ok) {
         if (!ok) return;
@@ -1914,6 +2122,13 @@
       animateLike(event);
     } else if (event.kind === 'column-revealed') {
       flashColumn(event.column);
+    } else if (event.kind === 'column-hidden') {
+      flashColumn(event.column);
+      if (event.actorId !== currentUserId) {
+        ui.toast('O organizador ocultou os cards de ' + COLUMN_LABELS[event.column] + '.', 'success');
+      }
+    } else if (event.kind === 'room-title-changed') {
+      if (event.actorId !== currentUserId) ui.toast('A sala agora tem um novo título.', 'success');
     } else if (event.kind === 'answer-revealed') {
       animateAnswerReveal(event.answerId);
     } else if (event.kind === 'shuffled') {

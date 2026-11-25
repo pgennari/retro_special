@@ -570,6 +570,75 @@
       assert.equal(card.authorName, '');
     });
 
+    test('organizador define o título da sala e todos o veem no estado', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+
+      var denied = engine.applyAction(room, 'user_bia', 'room:setTitle', { title: 'Sala da Bia' });
+      assert.ok(!denied.ok, 'participante não pode mudar o título');
+
+      var set = engine.applyAction(room, 'user_ana', 'room:setTitle', { title: '  Retro   da sprint 42  ' });
+      assert.ok(set.ok);
+      assert.equal(set.event.kind, 'room-title-changed');
+      assert.equal(engine.getState(room, 'user_ana').title, 'Retro da sprint 42');
+      assert.equal(engine.getState(room, 'user_bia').title, 'Retro da sprint 42');
+      assert.equal(engine.getAdminState(room).title, 'Retro da sprint 42');
+
+      assert.ok(engine.applyAction(room, 'user_ana', 'room:setTitle', { title: '' }).ok);
+      assert.equal(engine.getState(room, 'user_bia').title, '');
+    });
+
+    test('organizador oculta os blocos novamente sem apagar joinhas', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+      var add = engine.applyAction(room, 'user_ana', 'card:add', {
+        column: 'acertos', text: 'Deploy sem sustos'
+      });
+      assert.ok(add.ok);
+      assert.ok(engine.applyAction(room, 'user_ana', 'column:reveal', { column: 'acertos' }).ok);
+      assert.ok(engine.applyAction(room, 'user_bia', 'card:like', {
+        column: 'acertos', cardId: add.event.cardId
+      }).ok);
+
+      assert.ok(!engine.applyAction(room, 'user_bia', 'column:hide', { column: 'acertos' }).ok);
+
+      var hidden = engine.applyAction(room, 'user_ana', 'column:hide', { column: 'acertos' });
+      assert.ok(hidden.ok);
+      assert.equal(hidden.event.kind, 'column-hidden');
+      var view = engine.getState(room, 'user_bia');
+      assert.equal(view.acertos.revealed, false);
+      assert.equal(view.acertos.canMerge, false);
+      assert.equal(view.acertos.cards[0].canRead, false);
+      assert.equal(view.acertos.cards[0].text, '');
+      assert.equal(view.acertos.cards[0].likeCount, 1);
+      assert.ok(!engine.applyAction(room, 'user_bia', 'card:like', {
+        column: 'acertos', cardId: add.event.cardId
+      }).ok);
+
+      assert.ok(engine.applyAction(room, 'user_ana', 'column:reveal', { column: 'acertos' }).ok);
+      assert.equal(engine.getState(room, 'user_bia').acertos.cards[0].text, 'Deploy sem sustos');
+    });
+
+    test('participante edita nome e avatar dentro da sala', function () {
+      var room = engine.createRoom(person('user_ana', 'Ana'));
+      engine.joinRoom(room, person('user_bia', 'Bia'));
+      var avatar = { kind: 'emoji', value: '🐼', bg: 'linear-gradient(135deg,#5ce1ff,#2563eb)' };
+
+      var updated = engine.applyAction(room, 'user_bia', 'room:updateProfile', {
+        name: '  Bia   Souza ', avatar: avatar, userId: 'user_ana'
+      });
+      assert.ok(updated.ok);
+      assert.equal(updated.event.kind, 'profile-updated');
+      var state = engine.getState(room, 'user_bia');
+      assert.equal(state.users[1].name, 'Bia Souza');
+      assert.equal(state.users[1].avatar.value, '🐼');
+      assert.equal(state.users[0].name, 'Ana', 'o payload não pode alterar outra pessoa');
+      assert.equal(engine.getState(room, 'user_ana').users[1].name, 'Bia Souza');
+
+      var invalid = engine.applyAction(room, 'user_bia', 'room:updateProfile', { name: '   ' });
+      assert.ok(!invalid.ok);
+    });
+
     return results;
   }
 

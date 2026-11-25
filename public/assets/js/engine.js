@@ -16,6 +16,7 @@
   var CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   var MAX_USERS = 30;
   var MAX_CARDS = 100;
+  var MAX_TITLE = 80;
   var MAX_MERGED_TEXT = 2400;
   var MAX_MERGED_PLAN = 1200;
   var ROWS = { acertos: true, melhorias: true };
@@ -76,6 +77,10 @@
 
   function cleanName(value) {
     return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, 40);
+  }
+
+  function cleanTitle(value) {
+    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE);
   }
 
   function cleanBlock(value, max) {
@@ -209,6 +214,7 @@
     var user = makeUser(identity, 0);
     var room = {
       code: normalizeCode(code) || randomCode(6),
+      title: '',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       version: 1,
@@ -488,6 +494,19 @@
         return { ok: true, event: { kind: 'column-revealed', column: payload.column } };
       }
 
+      case 'column:hide': {
+        orgError = requireOrganizer(room, userId);
+        if (orgError) return orgError;
+        column = getColumn(room, payload.column);
+        if (!column) return { ok: false, error: 'Bloco inválido.' };
+        if (!column.revealed) return { ok: false, error: 'Este bloco já está oculto.' };
+        // Só a visibilidade muda: joinhas e planos continuam valendo quando o
+        // organizador revelar o bloco novamente.
+        column.revealed = false;
+        touch(room);
+        return { ok: true, event: { kind: 'column-hidden', column: payload.column } };
+      }
+
       case 'card:like': {
         column = getColumn(room, payload.column);
         if (!column) return { ok: false, error: 'Bloco inválido.' };
@@ -738,6 +757,26 @@
       }
 
       /* ----------------------------- sala ------------------------------ */
+      case 'room:setTitle': {
+        orgError = requireOrganizer(room, userId);
+        if (orgError) return orgError;
+        var title = cleanTitle(payload.title != null ? payload.title : payload.text);
+        room.title = title;
+        touch(room);
+        return { ok: true, event: { kind: 'room-title-changed', title: title } };
+      }
+
+      case 'room:updateProfile': {
+        var nextName = cleanName(payload.name);
+        if (!nextName) return { ok: false, error: 'Informe seu nome.' };
+        user = findUser(room, userId);
+        var colorIndex = USER_COLORS.indexOf(user.color);
+        user.name = nextName;
+        user.avatar = cleanAvatar(payload.avatar, colorIndex >= 0 ? colorIndex : room.colorSeq);
+        touch(room);
+        return { ok: true, event: { kind: 'profile-updated', userId: userId } };
+      }
+
       case 'room:setModerator': {
         var roleError = requireOrganizer(room, userId);
         if (roleError) return roleError;
@@ -897,6 +936,7 @@
     var d = room.dynamics;
     return {
       code: room.code,
+      title: room.title || '',
       version: room.version,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
@@ -1192,6 +1232,7 @@
     var isOrg = room.organizerId === viewerId;
     return {
       code: room.code,
+      title: room.title || '',
       version: room.version,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,

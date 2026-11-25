@@ -27,10 +27,12 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 - Nome + foto (recortada e comprimida no navegador) ou avatar emoji.
 - A identidade fica salva no navegador (`localStorage`): ao fechar e reabrir o browser, a mesma pessoa entra novamente nas salas em que estava.
 - Para entrar como outra pessoa no mesmo navegador, use **trocar pessoa** na tela inicial.
+- Já dentro da sala, clique no seu nome/avatar no cabeçalho para editar nome e avatar (inclusive enviar uma nova foto); a alteração aparece para todo mundo na hora.
 - Cada pessoa recebe uma cor própria na sala.
 
 ### Sala
 - Crie uma sala (você vira **organizador**) ou entre com o código de 6 caracteres.
+- O organizador pode dar/editar um **título** clicando nele no cabeçalho; ele aparece para todas as pessoas da sala.
 - Link de convite (`/sala/CODIGO`) leva direto para a sala — e pede a identificação se ainda não houver.
 - Presença ao vivo, pessoas conectadas/offline e remoção de participantes pelo organizador.
 - O organizador pode promover pessoas conectadas a **Moderador** (e rebaixar depois) na lista de pessoas da sala.
@@ -43,6 +45,8 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 ### Acertos e Melhorias
 - Todos adicionam cards **anônimos** (a autoria não aparece para ninguém); o conteúdo fica **oculto** até o organizador revelar o bloco. Texto, plano de ação e responsáveis não são enviados ao cliente nem entram no DOM antes da revelação.
 - Depois da revelação, os cards ganham **joinhas** (👍) com animação e esquentam conforme recebem votos. A partir daí, somente o organizador pode remover cards.
+- O organizador pode usar **🙈 Ocultar tudo** para voltar a esconder os conteúdos; joinhas e planos de ação são preservados para uma próxima revelação.
+- O interruptor **Apresentando** esconde o conteúdo dos cards escritos pelo organizador, para a tela compartilhada não mostrar a resposta dele.
 - Após a revelação, organizador e moderadores podem **mesclar cards semelhantes**: marque pelo menos 2 cards e use “Mesclar”. O primeiro marcado vira o card base; textos, joinhas e planos são combinados e os demais cards são removidos.
 - Em Melhorias, o organizador define um **plano de ação** por card e escolhe os responsáveis.
 
@@ -57,7 +61,7 @@ A única dependência de servidor é `ws`, usada pelo canal WebSocket; o resto d
 1. O organizador escreve a pergunta e pode ocultá-la/exibi-la quando quiser.
 2. Libera as respostas; cada participante envia a sua (pode atualizar enquanto a fase estiver ativa).
 3. Quando todos os conectados respondem, o organizador **embaralha**: uma animação mistura e apaga os avatares, e as respostas aparecem sem autoria.
-4. Todos arrastam (ou tocam) pessoas para as respostas que acham que cada uma escreveu. Os palpites ficam públicos.
+4. Todos arrastam (ou tocam) pessoas para as respostas que acham que cada uma escreveu. Os palpites aparecem para todo mundo, mas **quem fez cada palpite só é identificado quando o organizador revela o autor daquela resposta**.
 5. Com todos os palpites dados, o organizador **encerra a votação** e trava as alterações.
 6. Os autores são revelados **um por um**; cada acerto vale **1 ponto** e o placar sobe ao vivo.
 7. Ao final, o organizador pode iniciar uma nova fase.
@@ -81,7 +85,7 @@ O modo demo é ótimo para experimentar, mas não persiste entre navegadores nem
 npm test
 ```
 
-Roda os 14 casos do motor (`public/assets/js/engine.js`), os 8 casos de identidade por janela, os 8 casos de persistência (codec, fila de gravação e integração REST), os 3 casos do cliente Firestore e o teste de integração das rotas de administração. A suíte do motor também pode ser aberta em `tests/engine.test.html`.
+Roda os 25 casos do motor (`public/assets/js/engine.js`), os 8 casos de identidade por janela, os 8 casos de persistência (codec, fila de gravação e integração REST), os 3 casos do cliente Firestore e os testes de administração, fallback de estado/SSE e WebSocket. A suíte do motor também pode ser aberta em `tests/engine.test.html`.
 
 ## Publicação (plano Spark)
 
@@ -159,5 +163,5 @@ firestore.rules           bloqueia acesso direto do navegador
 - O painel ADMIN lista todas as salas ainda persistidas, inclusive as expiradas ou gravadas com um formato antigo; abrir uma delas no admin não apaga o documento.
 - No Render, o WebSocket usa a mesma porta do HTTP (`wss://`). O cliente envia um ping a cada 25 s para manter o serviço free ativo e detectar conexões mortas.
 - As fotos ficam em subdocumentos (`rooms/{code}/avatars/{userId}`) para não estourar o limite de 1 MiB do documento principal.
-- Antes da revelação, o conteúdo dos cards não é enviado ao navegador de quem não pode lê-lo (nem entra no DOM). O mesmo vale para respostas da dinâmica: autoria e autores só aparecem quando o organizador revela cada uma.
+- Antes da revelação, o conteúdo dos cards não é enviado ao navegador de quem não pode lê-lo (nem entra no DOM). O mesmo vale para respostas da dinâmica: autoria e autores só aparecem quando o organizador revela cada uma, e a autoria dos palpites só aparece junto com a revelação da resposta correspondente.
 - Fotos são reduzidas para 192 × 192 JPEG no cliente antes de serem enviadas.
