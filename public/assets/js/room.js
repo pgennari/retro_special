@@ -1017,9 +1017,7 @@
       // Card oculto não recebe o texto no DOM: blurred text ainda é lido no DevTools.
       (isLocked ? '' : '<p class="card-text">' + esc(card.text) + '</p>') +
       (isLocked
-        ? '<div class="card-lock">' + (hiddenByPresenting
-          ? '🙈 <b>conteúdo oculto</b> · modo apresentando'
-          : '🔒 <b>conteúdo oculto</b> · o organizador revela para todos') + '</div>'
+        ? '<div class="card-lock">🔒 <b>conteúdo oculto</b> · o organizador revela para todos</div>'
         : '') +
       planHTML +
       ((likeHTML || mergeHTML)
